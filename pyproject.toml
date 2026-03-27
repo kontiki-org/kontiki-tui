@@ -50,6 +50,7 @@ kontiki-tui = "kontiki_tui.app:main"
 Homepage = "https://github.com/kontiki-org/kontiki-tui"
 Repository = "https://github.com/kontiki-org/kontiki-tui"
 Issues = "https://github.com/kontiki-org/kontiki-tui/issues"
+"PyPI" = "https://pypi.org/project/kontiki-tui/"
 
 
 [tool.pytest.ini_options]

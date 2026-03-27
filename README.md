@@ -49,7 +49,16 @@ It is “engineering‑tool” oriented:
 
 ## Quickstart
 
-### Install & run
+### Install from PyPI
+
+```bash
+pip install kontiki-tui
+kontiki-tui
+```
+
+([package on PyPI](https://pypi.org/project/kontiki-tui/))
+
+### Install from source (Poetry)
 
 ```bash
 make install
