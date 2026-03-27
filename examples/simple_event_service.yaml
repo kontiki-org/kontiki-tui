@@ -1,0 +1,13 @@
+event:
+  name: dynamic_event_name
+
+logging:
+  handlers:
+    file:
+      filename: logs/simple_event_service.log
+
+kontiki:
+  registration:
+    configuration:
+      public_paths:
+        - event

@@ -1,0 +1,62 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    ports:
+      - "5672:5672"     # AMQP
+      - "15672:15672"   # Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  kontiki-registry:
+    build:
+      context: .
+    command: >
+      kontiki_registry
+      --config examples/common.docker.yaml
+      --config examples/kontiki_registry.yaml
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+
+  rpc-service:
+    build:
+      context: .
+    command: >
+      python -m kontiki.runner.__main__
+      examples.rpc_service.RpcService
+      --config examples/rpc_service.yaml
+      --config examples/common.docker.yaml
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      kontiki-registry:
+        condition: service_started
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+
+  simple-event-service:
+    build:
+      context: .
+    command: >
+      python -m kontiki.runner.__main__
+      examples.simple_event_service.SimpleEventService
+      --config examples/simple_event_service.yaml
+      --config examples/common.docker.yaml
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      kontiki-registry:
+        condition: service_started
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped

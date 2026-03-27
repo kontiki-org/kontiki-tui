@@ -1,0 +1,26 @@
+kontiki:
+  amqp:
+    url: amqp://guest:guest@rabbitmq/
+  registration:
+    # Give the registry a moment to boot before services publish.
+    delay: 3
+
+logging:
+  version: 1
+  disable_existing_loggers: True
+  formatters:
+    default:
+      format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s - %(filename)s:%(lineno)d"
+  handlers:
+    file:
+      class: logging.FileHandler
+      formatter: default
+      level: DEBUG
+  loggers:
+    kontiki:
+      handlers: ["file"]
+      level: DEBUG
+      propagate: False
+  root:
+    handlers: ["file"]
+    level: DEBUG

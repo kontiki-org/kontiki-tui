@@ -1,0 +1,4 @@
+logging:
+  handlers:
+    file:
+      filename: logs/rpc_service.log

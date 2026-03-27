@@ -1,0 +1,219 @@
+Screen {
+    /* background: black; */
+    layout: vertical;
+}
+
+
+/*******************************************************************************
+View Tab - Split Layout
+*******************************************************************************/
+
+#commands {
+    height: 1fr;
+}
+
+#kontiki_tabs {
+    margin: 1;
+    border: none;
+    padding: 0 1;
+}
+
+
+#search_horizontal {
+    height: auto;
+}
+
+#search_input {
+    margin: 1;
+    width: 25%;
+}
+
+
+
+.datatables {
+    border: round darkgrey;
+    width: 100%;
+}
+
+#services_split {
+    layout: vertical;
+    padding: 1;
+}
+
+#services_table {
+    height: 1fr;
+    width: 100%;
+}
+
+#service_config {
+    height: 1fr;
+    width: 100%;
+    border: round darkgrey;
+}
+
+#detail_content {
+    margin: 1;
+    padding: 1;
+}
+
+#detail_content > Label {
+    margin: 1;
+    padding-left: 1;
+}
+
+#detail_placeholder {
+    content-align: center middle;
+    text-style: italic;
+}
+
+
+
+SettingsTab {
+    layout: vertical;
+    padding-bottom: 1;
+}
+
+#kontiki_tui_settings {
+    margin: 1 1 0 1;
+    width: 100%;
+    height: 1fr;
+    border: round darkgrey;
+}
+
+#save_settings_button {
+    margin: 1;
+    width: 100%;
+}
+
+
+
+.mid_width {
+    width: 50%;
+}
+
+#pattern_input {
+    margin: 1;
+    width: 40%;
+}
+
+#pattern_horizontal {
+    height: auto;
+}
+
+#noise_label {
+    margin: 1;
+    height: 3;
+    content-align: center middle;
+}
+
+#noise_switch {
+    margin: 1;
+    height: auto;
+    width: auto;
+}
+
+#logs {
+    margin: 1;
+    width: 100%;
+    /* background: black; */
+    border: round white;
+    height: 1fr;
+}
+
+#events_vertical {
+    layout: vertical;
+}
+
+#events_filters {
+    height: auto;
+    margin: 1 1 0 1;
+}
+
+#events_filters > Label {
+    margin: 1 1 0 1;
+    height: 3;
+    content-align: center middle;
+}
+
+#events_field {
+    margin: 1 1 0 0;
+    width: 34%;
+}
+
+#events_value {
+    margin: 1 1 0 0;
+    width: 34%;
+}
+
+#events_limit {
+    margin: 1 1 0 0;
+    width: 10;
+}
+
+#events_table {
+    margin: 1;
+    width: 100%;
+}
+
+#exceptions_vertical {
+    layout: vertical;
+}
+
+#exceptions_filters {
+    height: auto;
+    margin: 1 1 0 1;
+}
+
+#exceptions_filters > Label {
+    margin: 1 1 0 1;
+    height: 3;
+    content-align: center middle;
+}
+
+#exceptions_field {
+    margin: 1 1 0 0;
+    width: 34%;
+}
+
+#exceptions_value {
+    margin: 1 1 0 0;
+    width: 34%;
+}
+
+#exceptions_limit {
+    margin: 1 1 0 0;
+    width: 10;
+}
+
+#exceptions_table {
+    margin: 1;
+    width: 100%;
+}
+
+/*******************************************************************************
+Prompt Area
+*******************************************************************************/
+#prompt-area {
+    height: auto;
+    min-height: 0;
+    max-height: 3;
+}
+
+ConfirmPrompt {
+    height: 1;
+    padding-left: 1;
+    color: orange;
+}
+
+
+ErrorPrompt {
+    height: 1;
+    padding-left: 1;
+    color: red;
+}
+
+InfoPrompt {
+    height: 1;
+    padding-left: 1;
+    color: green;
+}

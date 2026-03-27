@@ -1,0 +1,8 @@
+logging:
+  handlers:
+    file:
+      filename: logs/kontiki_registry.log
+
+event_tracker:
+  ttl_minutes: 3
+  cleanup_interval_seconds: 30
