@@ -5,6 +5,8 @@
 **KontikiTUI** is a small terminal UI for monitoring [Kontiki](https://github.com/kontiki-org/kontiki)
 systems via the Kontiki service registry and log files.
 
+It is built with [Textual](https://textual.textualize.io/), a Python TUI framework.
+
 It is “engineering‑tool” oriented:
 
 - quick view of **running services** (status, pid/host, version, local stats when possible),
