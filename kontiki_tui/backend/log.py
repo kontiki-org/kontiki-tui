@@ -131,7 +131,8 @@ def get_log(pattern, log_folder, filter_out=[], max_lines: Optional[int] = None)
     #   - goto 100%              -> go to the end of the view
     #   - relative-goto -N       -> move up by N lines
     #   - hide-lines-before here -> hide everything above the current position
-    #   - write-raw-to -         -> write the current view to stdout
+    #   - UPDATE log_mark        -> mark visible rows (:write-raw-to needs marks)
+    #   - write-raw-to -         -> write marked (visible) lines to stdout
     if should_slice:
         cmd.extend(
             [
@@ -142,6 +143,8 @@ def get_log(pattern, log_folder, filter_out=[], max_lines: Optional[int] = None)
                 "-c",
                 ":hide-lines-before here",
                 "-c",
+                ";UPDATE all_logs SET log_mark = 1",
+                "-c",
                 ":write-raw-to -",
             ]
         )
@@ -150,9 +153,14 @@ def get_log(pattern, log_folder, filter_out=[], max_lines: Optional[int] = None)
 
     proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     raw_output = proc.stdout.decode()
+    stderr_text = proc.stderr.decode()
 
-    if proc.returncode == 0:
+    if proc.returncode == 0 and "error:" not in stderr_text.lower():
         return raw_output
-    else:
-        logging.warning(f"lnav returned non-zero exit code: {proc.returncode}")
-        return ""
+
+    logging.warning(
+        "lnav failed (exit=%s); falling back to python log reader. stderr=%s",
+        proc.returncode,
+        stderr_text.strip() or "(empty)",
+    )
+    return _python_get_log(pattern, log_folder, filter_out, max_lines=max_lines)

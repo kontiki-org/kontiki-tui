@@ -99,4 +99,28 @@ def test_get_log_uses_lnav_slicing_when_over_limit():
         called_cmd = run.call_args[0][0]
         assert ":goto 100%" in called_cmd
         assert ":hide-lines-before here" in called_cmd
+        assert ";UPDATE all_logs SET log_mark = 1" in called_cmd
         assert ":write-raw-to -" in called_cmd
+
+
+def test_get_log_falls_back_to_python_when_lnav_stderr_has_error(tmp_logs_dir):
+    p = tmp_logs_dir / "a.log"
+    p.write_text("line 1\nline 2\nline 3\n", encoding="utf-8")
+
+    with (
+        patch.object(log_backend, "is_lnav_available", return_value=True),
+        patch.object(log_backend, "_lnav_log_line_count", return_value=10),
+        patch.object(log_backend.subprocess, "run") as run,
+    ):
+        run.return_value = Mock(
+            returncode=0,
+            stdout=b"",
+            stderr=b"error: no lines marked to write, use 'm' to mark lines\n",
+        )
+        out = log_backend.get_log(
+            pattern="",
+            log_folder=str(tmp_logs_dir),
+            filter_out=[],
+            max_lines=50,
+        )
+    assert out.splitlines() == ["line 1", "line 2", "line 3"]
