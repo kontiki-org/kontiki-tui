@@ -1,0 +1,11 @@
+# Changelog
+
+## [0.1.1] - 2026-07-17
+
+- Fixes empty Logs tab when `lnav` truncates to `max_lines`: mark visible rows before `:write-raw-to` (lnav requires marks).
+- Falls back to the Python log reader when `lnav` reports an error on stderr even with exit code 0.
+
+## [0.1.0] - 2026-07-17
+
+Initial public release.
+See `README.md` for an overview of the TUI (services, events, exceptions, logs, settings).
