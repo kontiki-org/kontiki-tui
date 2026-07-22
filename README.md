@@ -1,5 +1,14 @@
 # KontikiTUI
 
+> **Part of the Kontiki suite** — a compact open-source stack for startups and
+> small teams that need ops without the heavy stack.
+>
+> - Build with [Kontiki](https://github.com/kontiki-org/kontiki)
+> - See with [kontiki-tui](https://github.com/kontiki-org/kontiki-tui)
+> - Get alerted with [kontiki-monitor](https://github.com/kontiki-org/kontiki-monitor)
+>
+> Get started → [Quickstart](#quickstart) below.
+
 ## Overview
 
 **KontikiTUI** is a small terminal UI for monitoring [Kontiki](https://github.com/kontiki-org/kontiki)
