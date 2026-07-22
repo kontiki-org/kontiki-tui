@@ -6,8 +6,7 @@
 > - Build with [Kontiki](https://github.com/kontiki-org/kontiki)
 > - See with [kontiki-tui](https://github.com/kontiki-org/kontiki-tui)
 > - Get alerted with [kontiki-monitor](https://github.com/kontiki-org/kontiki-monitor)
->
-> Get started → [Quickstart](#quickstart) below.
+
 
 ## Overview
 
