@@ -20,6 +20,10 @@ It is “engineering‑tool” oriented:
 - **Services**: registered services with `status`, `pid/host`, `version` and local stats
   (CPU/MEM/FD when possible, otherwise `N/A`). Selecting a row shows the configuration/metadata in JSON.
 
+  Defaults to the **business** registration group (`services.group_filter: business` in
+  `~/.config/kontiki_tui.yaml`; set to `all` to include platform services). Missing/blank
+  Registry `group` counts as business. The Logs tab is not filtered by group.
+
   ![Services tab](assets/services.png)
 
 - **Events**: events tracked by the registry, with local filters (`Field`/`Value`/`Limit`).

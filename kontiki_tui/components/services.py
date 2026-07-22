@@ -6,7 +6,25 @@ from textual.binding import Binding
 from textual.containers import Vertical
 from textual.widgets import DataTable, Static, TextArea
 
+from kontiki_tui.backend.services import (
+    matches_group_filter,
+    normalize_registration_group,
+)
+from kontiki_tui.config import get_group_filter
+
 # -----------------------------------------------------------------------------
+
+_BASE_HEADERS = {
+    "service_name": "Service Name",
+    "instance_id": "Service Instance ID",
+    "status": "Status",
+    "pid": "PID",
+    "host": "Host",
+    "service_version": "Version",
+    "cpu_percent": "CPU (%)",
+    "mem_mb": "Memory (MB)",
+    "fd_count": "Open FDs",
+}
 
 
 class ServicesTab(Static):
@@ -19,17 +37,19 @@ class ServicesTab(Static):
         self.services_table = None
         self.config_view = None
         self.row_data_map = {}  # Map row_key -> dict of original values
-        self.headers = {
-            "service_name": "Service Name",
-            "instance_id": "Service Instance ID",
-            "status": "Status",
-            "pid": "PID",
-            "host": "Host",
-            "service_version": "Version",
-            "cpu_percent": "CPU (%)",
-            "mem_mb": "Memory (MB)",
-            "fd_count": "Open FDs",
-        }
+        self.headers = dict(_BASE_HEADERS)
+
+    def _headers_for_filter(self, group_filter):
+        headers = dict(_BASE_HEADERS)
+        if group_filter == "all":
+            # Insert group after version when showing the full fleet.
+            ordered = {}
+            for key, label in _BASE_HEADERS.items():
+                ordered[key] = label
+                if key == "service_version":
+                    ordered["group"] = "Group"
+            return ordered
+        return headers
 
     def compose(self):
         with Vertical(id="services_split"):
@@ -56,6 +76,10 @@ class ServicesTab(Static):
         # Start a periodic refresh of psutil-based stats (CPU, MEM, FDs)
         # without re-querying the service registry each time.
         self.set_interval(5.0, self._refresh_stats_only)
+
+    def _group_filter_from_conf(self):
+        conf = self.app.conf if isinstance(self.app.conf, dict) else {}
+        return get_group_filter(conf)
 
     async def action_refresh_services(self) -> None:
         """Refresh the services table from the registry."""
@@ -103,6 +127,9 @@ class ServicesTab(Static):
             logging.error(f"Error getting services from backend: {e}", exc_info=True)
             return
 
+        group_filter = self._group_filter_from_conf()
+        self.headers = self._headers_for_filter(group_filter)
+
         rows = []
         row_data_list = []  # Temporary list to store row_dicts in order
 
@@ -116,6 +143,10 @@ class ServicesTab(Static):
                 status = entry.get("status", "")
                 metadata = entry.get("metadata", {}) or {}
                 config = metadata.get("config", {})
+
+                group = normalize_registration_group(metadata.get("group"))
+                if not matches_group_filter(group, group_filter):
+                    continue
 
                 pid = metadata.get("pid", "")
                 host = metadata.get("host", "")
@@ -168,6 +199,7 @@ class ServicesTab(Static):
                     "pid": pid,
                     "host": host,
                     "service_version": version,
+                    "group": group,
                     "cpu_percent": cpu_value,
                     "mem_mb": mem_value,
                     "fd_count": fd_value,
@@ -180,12 +212,11 @@ class ServicesTab(Static):
                 rows.append(self._row_to_tuple(row_dict))
                 row_data_list.append(row_dict)
 
-        # Add columns if they don't exist yet
-        if len(self.services_table.columns) == 0:
-            self.services_table.add_columns(*tuple(self.headers.values()))
-            logging.info(f"Added {len(self.headers)} columns to services table")
+        # Rebuild columns so business vs all can show/hide the group column.
+        self.services_table.clear(columns=True)
+        self.services_table.add_columns(*tuple(self.headers.values()))
+        logging.info(f"Added {len(self.headers)} columns to services table")
 
-        self.services_table.clear()
         self.row_data_map = {}  # Reset the mapping
         if rows:
             # add_rows returns the row keys that Textual generated

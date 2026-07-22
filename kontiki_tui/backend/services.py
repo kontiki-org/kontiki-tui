@@ -5,6 +5,28 @@ import psutil
 from kontiki.registry import ServiceRegistryProxy
 
 
+def normalize_registration_group(group):
+    """Treat missing / null / blank group as business (reader-side contract)."""
+    if group is None:
+        return "business"
+    if not isinstance(group, str):
+        return "business"
+    stripped = group.strip()
+    if not stripped:
+        return "business"
+    return stripped
+
+
+def matches_group_filter(group, group_filter):
+    """Return True if an instance group should appear for the Services filter.
+
+    group_filter is ``business`` (default view) or ``all``.
+    """
+    if group_filter == "all":
+        return True
+    return normalize_registration_group(group) == "business"
+
+
 class Services:
     def __init__(self, messenger):
         self.services = ServiceRegistryProxy(messenger)

@@ -29,11 +29,11 @@ clean:
 
 run-simple-event-example:
 	@echo "Running simple event example..."
-	$(PY) -m examples.simple_example
+	PYTHONPATH=. $(PY) -m examples.simple_example
 
 run-rpc-example:
 	@echo "Running RPC example..."
-	$(PY) -m examples.rpc_example
+	PYTHONPATH=. $(PY) -m examples.rpc_example
 
 
 # -----------------------------------------------------------------------------

@@ -2,7 +2,7 @@ from pathlib import Path
 
 import yaml
 
-from kontiki_tui.config import BASE_CONF, load
+from kontiki_tui.config import BASE_CONF, get_group_filter, load
 
 
 def test_load_creates_default_config_when_missing(tmp_path: Path):
@@ -12,6 +12,7 @@ def test_load_creates_default_config_when_missing(tmp_path: Path):
     conf = load(str(conf_path))
     assert conf == BASE_CONF
     assert conf_path.exists()
+    assert conf["services"]["group_filter"] == "business"
 
 
 def test_load_reads_existing_yaml(tmp_path: Path):
@@ -24,3 +25,15 @@ def test_load_reads_existing_yaml(tmp_path: Path):
 
     conf = load(str(conf_path))
     assert conf == data
+
+
+def test_get_group_filter_defaults():
+    assert get_group_filter({}) == "business"
+    assert get_group_filter(None) == "business"
+    assert get_group_filter({"services": {}}) == "business"
+    assert get_group_filter({"services": {"group_filter": "nope"}}) == "business"
+
+
+def test_get_group_filter_reads_value():
+    assert get_group_filter({"services": {"group_filter": "all"}}) == "all"
+    assert get_group_filter({"services": {"group_filter": "business"}}) == "business"

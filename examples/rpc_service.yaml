@@ -2,3 +2,8 @@ logging:
   handlers:
     file:
       filename: logs/rpc_service.log
+
+kontiki:
+  registration:
+    # Non-business group so services.group_filter: all can be exercised locally.
+    group: platform

@@ -1,9 +1,12 @@
 import logging
 import os
+from pathlib import Path
 
 import yaml
 
 # -----------------------------------------------------------------------------
+
+CONF_FILE = os.path.join(Path.home(), ".config", "kontiki_tui.yaml")
 
 BASE_CONF = {
     "amqp": {"url": "amqp://guest:guest@localhost:5672"},
@@ -13,7 +16,13 @@ BASE_CONF = {
         # If not set in the user config, this default will be used.
         "max-lines": 2000,
     },
+    # Services tab: default to business workloads; use "all" to include platform.
+    "services": {
+        "group_filter": "business",
+    },
 }
+
+VALID_GROUP_FILTERS = ("business", "all")
 
 # -----------------------------------------------------------------------------
 
@@ -37,3 +46,16 @@ def load(conf_file):
         except OSError:
             msg = f"Internal error: '{conf_file}' write on disk failed."
             raise RuntimeError(msg)
+
+
+def get_group_filter(conf):
+    """Return the Services tab group filter (``business`` or ``all``)."""
+    if not isinstance(conf, dict):
+        return "business"
+    services = conf.get("services")
+    if not isinstance(services, dict):
+        return "business"
+    value = services.get("group_filter", "business")
+    if value not in VALID_GROUP_FILTERS:
+        return "business"
+    return value

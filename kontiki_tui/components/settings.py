@@ -1,12 +1,11 @@
 import logging
 import os
-from pathlib import Path
 
 import yaml
 from textual.message import Message
 from textual.widgets import Button, Static, TextArea
 
-from kontiki_tui.config import BASE_CONF
+from kontiki_tui.config import BASE_CONF, CONF_FILE
 
 # -----------------------------------------------------------------------------
 
@@ -19,7 +18,7 @@ class SettingsTab(Static):
 
     def __init__(self, id_):
         super().__init__(id=id_)
-        self._path = os.path.join(Path.home(), ".config", "kontiki_tui.yaml")
+        self._path = CONF_FILE
 
     def compose(self):
         settings = TextArea(language="yaml", id="kontiki_tui_settings")
