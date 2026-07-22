@@ -3,7 +3,11 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from kontiki_tui.backend.services import Services
+from kontiki_tui.backend.services import (
+    Services,
+    matches_group_filter,
+    normalize_registration_group,
+)
 
 
 @pytest.fixture
@@ -14,6 +18,38 @@ def messenger():
 @pytest.fixture
 def services(messenger):
     return Services(messenger=messenger)
+
+
+@pytest.mark.parametrize(
+    "raw, expected",
+    [
+        (None, "business"),
+        ("", "business"),
+        ("   ", "business"),
+        ("business", "business"),
+        ("platform", "platform"),
+        (" batch ", "batch"),
+        (123, "business"),
+    ],
+)
+def test_normalize_registration_group(raw, expected):
+    assert normalize_registration_group(raw) == expected
+
+
+def test_matches_group_filter_business_only():
+    assert matches_group_filter(None, "business")
+    assert matches_group_filter("", "business")
+    assert matches_group_filter("  ", "business")
+    assert matches_group_filter("business", "business")
+    assert not matches_group_filter("platform", "business")
+    assert not matches_group_filter("batch", "business")
+
+
+def test_matches_group_filter_all():
+    assert matches_group_filter("platform", "all")
+    assert matches_group_filter("business", "all")
+    assert matches_group_filter(None, "all")
+    assert matches_group_filter("batch", "all")
 
 
 def test_is_internal_registry_event(services):

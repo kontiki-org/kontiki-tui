@@ -1,5 +1,4 @@
 import logging
-import os
 from pathlib import Path
 from typing import Type
 
@@ -19,7 +18,7 @@ from kontiki_tui.components.prompt import ErrorPrompt, InfoPrompt, Prompt
 from kontiki_tui.components.services import ServicesTab
 from kontiki_tui.components.settings import SettingsTab
 from kontiki_tui.components.tabs import KontikiTabs
-from kontiki_tui.config import BASE_CONF, load
+from kontiki_tui.config import BASE_CONF, CONF_FILE, load
 
 # -----------------------------------------------------------------------------
 
@@ -30,9 +29,6 @@ logging.basicConfig(
     level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
-
-
-CONF_FILE = os.path.join(Path.home(), ".config", "kontiki_tui.yaml")
 
 
 # -----------------------------------------------------------------------------
@@ -307,6 +303,14 @@ class KontikiTuiApp(App):
         # Re-initialize the app from the updated configuration.
         success = await self._init_from_conf()
         if success:
+            try:
+                services_tab = self.query_one("#services", ServicesTab)
+                services_tab.sync_group_filter_from_conf()
+            except Exception as e:
+                logger.warning(
+                    f"Could not sync services group filter after reload: {e}",
+                    exc_info=True,
+                )
             self._show_info_prompt("Configuration reloaded successfully", timeout=3.0)
         # If initialization failed, _init_from_conf() already displayed an error message
 

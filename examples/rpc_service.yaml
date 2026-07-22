@@ -2,3 +2,8 @@ logging:
   handlers:
     file:
       filename: logs/rpc_service.log
+
+kontiki:
+  registration:
+    # Non-business group so kontiki-tui "Group: Business" vs "All" can be exercised.
+    group: platform
