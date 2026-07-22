@@ -5,5 +5,5 @@ logging:
 
 kontiki:
   registration:
-    # Non-business group so kontiki-tui "Group: Business" vs "All" can be exercised.
+    # Non-business group so services.group_filter: all can be exercised locally.
     group: platform

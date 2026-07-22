@@ -305,10 +305,10 @@ class KontikiTuiApp(App):
         if success:
             try:
                 services_tab = self.query_one("#services", ServicesTab)
-                services_tab.sync_group_filter_from_conf()
+                self.run_worker(services_tab.update_table())
             except Exception as e:
                 logger.warning(
-                    f"Could not sync services group filter after reload: {e}",
+                    f"Could not refresh services after reload: {e}",
                     exc_info=True,
                 )
             self._show_info_prompt("Configuration reloaded successfully", timeout=3.0)

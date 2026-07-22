@@ -59,24 +59,3 @@ def get_group_filter(conf):
     if value not in VALID_GROUP_FILTERS:
         return "business"
     return value
-
-
-def save_group_filter(conf_file, group_filter):
-    """Persist the Services group filter into the user config file."""
-    if group_filter not in VALID_GROUP_FILTERS:
-        group_filter = "business"
-    conf = load(conf_file)
-    if not isinstance(conf, dict):
-        conf = dict(BASE_CONF)
-    services = conf.get("services")
-    if not isinstance(services, dict):
-        services = {}
-        conf["services"] = services
-    services["group_filter"] = group_filter
-    try:
-        with open(conf_file, "w") as file:
-            yaml.dump(conf, file, sort_keys=False)
-    except OSError:
-        msg = f"Internal error: '{conf_file}' write on disk failed."
-        raise RuntimeError(msg)
-    return conf

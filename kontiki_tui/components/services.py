@@ -3,14 +3,14 @@ import logging
 
 from textual import on
 from textual.binding import Binding
-from textual.containers import Horizontal, Vertical
-from textual.widgets import DataTable, Label, Select, Static, TextArea
+from textual.containers import Vertical
+from textual.widgets import DataTable, Static, TextArea
 
 from kontiki_tui.backend.services import (
     matches_group_filter,
     normalize_registration_group,
 )
-from kontiki_tui.config import CONF_FILE, get_group_filter, save_group_filter
+from kontiki_tui.config import get_group_filter
 
 # -----------------------------------------------------------------------------
 
@@ -36,10 +36,8 @@ class ServicesTab(Static):
         super().__init__(id=id_)
         self.services_table = None
         self.config_view = None
-        self.group_filter_select = None
         self.row_data_map = {}  # Map row_key -> dict of original values
-        self._group_filter = "business"
-        self.headers = self._headers_for_filter(self._group_filter)
+        self.headers = dict(_BASE_HEADERS)
 
     def _headers_for_filter(self, group_filter):
         headers = dict(_BASE_HEADERS)
@@ -55,18 +53,6 @@ class ServicesTab(Static):
 
     def compose(self):
         with Vertical(id="services_split"):
-            with Horizontal(id="services_filters"):
-                yield Label("Group:")
-                self.group_filter_select = Select(
-                    options=[
-                        ("Business", "business"),
-                        ("All", "all"),
-                    ],
-                    value="business",
-                    id="services_group_filter",
-                    allow_blank=False,
-                )
-                yield self.group_filter_select
             table = DataTable(
                 id="services_table",
                 classes="datatables",
@@ -90,40 +76,14 @@ class ServicesTab(Static):
         # Start a periodic refresh of psutil-based stats (CPU, MEM, FDs)
         # without re-querying the service registry each time.
         self.set_interval(5.0, self._refresh_stats_only)
-        self.sync_group_filter_from_conf()
 
-    def sync_group_filter_from_conf(self) -> None:
-        """Load the Services group filter from app config into the Select."""
+    def _group_filter_from_conf(self):
         conf = self.app.conf if isinstance(self.app.conf, dict) else {}
-        group_filter = get_group_filter(conf)
-        self._group_filter = group_filter
-        self.headers = self._headers_for_filter(group_filter)
-        if self.group_filter_select is not None:
-            self.group_filter_select.value = group_filter
+        return get_group_filter(conf)
 
     async def action_refresh_services(self) -> None:
         """Refresh the services table from the registry."""
         logging.info("action_refresh_services called")
-        await self.update_table()
-
-    @on(Select.Changed)
-    async def on_group_filter_changed(self, event: Select.Changed) -> None:
-        if event.select.id != "services_group_filter":
-            return
-        value = event.value
-        if value not in ("business", "all"):
-            value = "business"
-        if value == self._group_filter:
-            return
-        self._group_filter = value
-        self.headers = self._headers_for_filter(value)
-
-        try:
-            conf = save_group_filter(CONF_FILE, value)
-            self.app.conf = conf
-        except Exception as e:
-            logging.error(f"Could not persist group filter: {e}", exc_info=True)
-
         await self.update_table()
 
     def _status_to_emoji(self, status: str) -> str:
@@ -167,6 +127,9 @@ class ServicesTab(Static):
             logging.error(f"Error getting services from backend: {e}", exc_info=True)
             return
 
+        group_filter = self._group_filter_from_conf()
+        self.headers = self._headers_for_filter(group_filter)
+
         rows = []
         row_data_list = []  # Temporary list to store row_dicts in order
 
@@ -182,7 +145,7 @@ class ServicesTab(Static):
                 config = metadata.get("config", {})
 
                 group = normalize_registration_group(metadata.get("group"))
-                if not matches_group_filter(group, self._group_filter):
+                if not matches_group_filter(group, group_filter):
                     continue
 
                 pid = metadata.get("pid", "")
@@ -249,8 +212,7 @@ class ServicesTab(Static):
                 rows.append(self._row_to_tuple(row_dict))
                 row_data_list.append(row_dict)
 
-        # Rebuild columns so Business vs All can show/hide the group column.
-        self.headers = self._headers_for_filter(self._group_filter)
+        # Rebuild columns so business vs all can show/hide the group column.
         self.services_table.clear(columns=True)
         self.services_table.add_columns(*tuple(self.headers.values()))
         logging.info(f"Added {len(self.headers)} columns to services table")

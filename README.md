@@ -20,11 +20,9 @@ It is “engineering‑tool” oriented:
 - **Services**: registered services with `status`, `pid/host`, `version` and local stats
   (CPU/MEM/FD when possible, otherwise `N/A`). Selecting a row shows the configuration/metadata in JSON.
 
-  By default the table shows only the **business** registration group (instances with no
-  `group`, or a blank one, count as business). Use the **Group** control to switch to
-  **All** and include `platform` (and other) services; a Group column appears in that mode.
-  The choice is stored in `~/.config/kontiki_tui.yaml` as `services.group_filter`.
-  The Logs tab is not filtered by group (it still reads the configured `logs.directory`).
+  Defaults to the **business** registration group (`services.group_filter: business` in
+  `~/.config/kontiki_tui.yaml`; set to `all` to include platform services). Missing/blank
+  Registry `group` counts as business. The Logs tab is not filtered by group.
 
   ![Services tab](assets/services.png)
 

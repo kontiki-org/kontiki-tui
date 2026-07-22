@@ -2,8 +2,8 @@
 
 ## [0.2.0] - 2026-07-22
 
-- Services tab defaults to the **business** registration group; switch Group to **All** to include platform services.
-- Persist `services.group_filter` in `~/.config/kontiki_tui.yaml`.
+- Services tab defaults to the **business** registration group via `services.group_filter`
+  in `~/.config/kontiki_tui.yaml` (`business` | `all`; edit in Settings).
 - Missing / blank Registry `group` is treated as `business`.
 - Require Kontiki `>=1.4.0` (registration `group` on the wire).
 - Example `rpc_service` registers with `group: platform` for local filter checks.
