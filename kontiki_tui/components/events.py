@@ -59,7 +59,9 @@ class EventsTab(Static):
                 yield Label("Limit:")
                 self.limit_input = Input(value="500", id="events_limit")
                 yield self.limit_input
-                label, select = make_group_filter_select(self.app, "events_group_filter")
+                label, select = make_group_filter_select(
+                    self.app, "events_group_filter"
+                )
                 self.group_filter_select = select
                 yield label
                 yield select

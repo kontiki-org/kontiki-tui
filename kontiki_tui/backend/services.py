@@ -208,9 +208,7 @@ class Services:
         # Pattern: anything ending with -{12 lowercase hex}.log
         kontiki_pattern = re.compile(r"^(.+)-([0-9a-f]{12})\.log$")
         instance_group_map = (
-            {}
-            if group_filter == "all"
-            else await self._build_instance_group_map()
+            {} if group_filter == "all" else await self._build_instance_group_map()
         )
 
         result = []
