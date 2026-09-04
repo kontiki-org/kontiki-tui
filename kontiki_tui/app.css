@@ -38,6 +38,24 @@ View Tab - Split Layout
 #services_split {
     layout: vertical;
     padding: 1;
+    height: 1fr;
+}
+
+#services_group_filter_row {
+    height: auto;
+    margin: 0 0 1 0;
+}
+
+#services_group_filter_row > Label {
+    margin: 1;
+    height: 3;
+    content-align: center middle;
+}
+
+.group-filter-select {
+    width: 16;
+    margin: 1;
+    height: auto;
 }
 
 #services_table {
@@ -100,6 +118,12 @@ SettingsTab {
     height: auto;
 }
 
+#pattern_horizontal > Label {
+    margin: 1;
+    height: 3;
+    content-align: center middle;
+}
+
 #noise_label {
     margin: 1;
     height: 3;
@@ -122,6 +146,7 @@ SettingsTab {
 
 #events_vertical {
     layout: vertical;
+    height: 1fr;
 }
 
 #events_filters {
@@ -153,10 +178,12 @@ SettingsTab {
 #events_table {
     margin: 1;
     width: 100%;
+    height: 1fr;
 }
 
 #exceptions_vertical {
     layout: vertical;
+    height: 1fr;
 }
 
 #exceptions_filters {
@@ -188,6 +215,7 @@ SettingsTab {
 #exceptions_table {
     margin: 1;
     width: 100%;
+    height: 1fr;
 }
 
 /*******************************************************************************

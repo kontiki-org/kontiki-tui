@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "kontiki-tui"
-version = "0.2.0"
+version = "1.0.0"
 description = "Terminal UI to monitor Kontiki services, registry events, and logs."
 authors = ["The Kontiki Authors"]
 license = "Apache-2.0"
@@ -17,7 +17,7 @@ include = [
 ]
 keywords = ["kontiki", "tui", "textual", "monitoring", "amqp"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Environment :: Console :: Curses",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
@@ -34,7 +34,7 @@ textual = "*"
 psutil = "^7.2.2"
 pyyaml = "^6.0.3"
 rich = "^14.3.3"
-kontiki = ">=1.4.0"
+kontiki = ">=1.8.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.0.0"

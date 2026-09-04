@@ -6,21 +6,14 @@ kontiki:
     delay: 3
 
 logging:
-  version: 1
-  disable_existing_loggers: True
-  formatters:
-    default:
-      format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s - %(filename)s:%(lineno)d"
+  directory: logs
   handlers:
+    console:
+      class: logging.StreamHandler
+      level: INFO
     file:
       class: logging.FileHandler
-      formatter: default
-      level: DEBUG
-  loggers:
-    kontiki:
-      handlers: ["file"]
-      level: DEBUG
-      propagate: False
+      level: INFO
   root:
-    handlers: ["file"]
-    level: DEBUG
+    handlers: [console, file]
+    level: INFO

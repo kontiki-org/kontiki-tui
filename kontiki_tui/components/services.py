@@ -3,20 +3,29 @@ import logging
 
 from textual import on
 from textual.binding import Binding
-from textual.containers import Vertical
-from textual.widgets import DataTable, Static, TextArea
+from textual.containers import Horizontal, Vertical
+from textual.widgets import DataTable, Select, Static, TextArea
+
+from kontiki.messaging.flow import short_instance_id
 
 from kontiki_tui.backend.services import (
     matches_group_filter,
     normalize_registration_group,
 )
-from kontiki_tui.config import get_group_filter
+from kontiki_tui.components.group_filter import (
+    GROUP_FILTER_SELECT_CLASS,
+    GroupFilterChanged,
+    current_group_filter,
+    is_group_filter_sync,
+    make_group_filter_select,
+    refresh_group_filter_options,
+)
 
 # -----------------------------------------------------------------------------
 
 _BASE_HEADERS = {
     "service_name": "Service Name",
-    "instance_id": "Service Instance ID",
+    "instance_id": "Short Instance ID",
     "status": "Status",
     "pid": "PID",
     "host": "Host",
@@ -36,6 +45,7 @@ class ServicesTab(Static):
         super().__init__(id=id_)
         self.services_table = None
         self.config_view = None
+        self.group_filter_select = None
         self.row_data_map = {}  # Map row_key -> dict of original values
         self.headers = dict(_BASE_HEADERS)
 
@@ -53,6 +63,13 @@ class ServicesTab(Static):
 
     def compose(self):
         with Vertical(id="services_split"):
+            with Horizontal(id="services_group_filter_row"):
+                label, select = make_group_filter_select(
+                    self.app, "services_group_filter"
+                )
+                self.group_filter_select = select
+                yield label
+                yield select
             table = DataTable(
                 id="services_table",
                 classes="datatables",
@@ -77,9 +94,22 @@ class ServicesTab(Static):
         # without re-querying the service registry each time.
         self.set_interval(5.0, self._refresh_stats_only)
 
-    def _group_filter_from_conf(self):
-        conf = self.app.conf if isinstance(self.app.conf, dict) else {}
-        return get_group_filter(conf)
+    def _session_group_filter(self):
+        return current_group_filter(self.app)
+
+    @on(Select.Changed)
+    def on_group_filter_select_changed(self, event: Select.Changed) -> None:
+        if GROUP_FILTER_SELECT_CLASS not in event.select.classes:
+            return
+        if is_group_filter_sync(self.app):
+            return
+        value = event.value
+        if value is None or value is Select.BLANK:
+            return
+        value = str(value)
+        if value == current_group_filter(self.app):
+            return
+        self.post_message(GroupFilterChanged(value))
 
     async def action_refresh_services(self) -> None:
         """Refresh the services table from the registry."""
@@ -127,7 +157,9 @@ class ServicesTab(Static):
             logging.error(f"Error getting services from backend: {e}", exc_info=True)
             return
 
-        group_filter = self._group_filter_from_conf()
+        group_filter = self._session_group_filter()
+        if self.group_filter_select is not None:
+            await refresh_group_filter_options(self.app, self.group_filter_select)
         self.headers = self._headers_for_filter(group_filter)
 
         rows = []
@@ -192,9 +224,10 @@ class ServicesTab(Static):
                     else ("N/A" if (pid and host) else "")
                 )
 
+                full_instance_id = metadata.get("instance_id", instance_id)
                 row_dict = {
                     "service_name": metadata.get("service_name", service_name),
-                    "instance_id": metadata.get("instance_id", instance_id),
+                    "instance_id": short_instance_id(str(full_instance_id or "")),
                     "status": status,
                     "pid": pid,
                     "host": host,

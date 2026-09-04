@@ -36,27 +36,39 @@ def _tail_lines(path: str, max_lines: Optional[int]) -> str:
     return "".join(lines)
 
 
+def _resolve_candidate_files(
+    log_folder: str, log_files: Optional[list[str]]
+) -> list[str]:
+    """Return the list of log files to read.
+
+    When ``log_files`` is provided (pre-filtered by group), use it directly.
+    Otherwise fall back to the entire ``log_folder``.
+    """
+    if log_files is not None:
+        return log_files
+    if not log_folder:
+        return []
+    if os.path.isfile(log_folder):
+        return [log_folder]
+    if os.path.isdir(log_folder):
+        return sorted(
+            os.path.join(log_folder, name)
+            for name in os.listdir(log_folder)
+            if os.path.isfile(os.path.join(log_folder, name))
+        )
+    logging.warning("Log path does not exist: %s", log_folder)
+    return []
+
+
 def _python_get_log(
     pattern: str,
     log_folder: str,
     filter_out: list[str],
     max_lines: Optional[int] = None,
+    log_files: Optional[list[str]] = None,
 ) -> str:
-    if not log_folder:
-        return ""
-
-    if os.path.isfile(log_folder):
-        candidate_files = [log_folder]
-    elif os.path.isdir(log_folder):
-        candidate_files = sorted(
-            [
-                os.path.join(log_folder, name)
-                for name in os.listdir(log_folder)
-                if os.path.isfile(os.path.join(log_folder, name))
-            ]
-        )
-    else:
-        logging.warning("Log path does not exist: %s", log_folder)
+    candidate_files = _resolve_candidate_files(log_folder, log_files)
+    if not candidate_files:
         return ""
 
     pattern_re = (
@@ -106,10 +118,23 @@ def _lnav_log_line_count(log_path: str) -> Optional[int]:
         return None
 
 
-def get_log(pattern, log_folder, filter_out=[], max_lines: Optional[int] = None):
+def get_log(
+    pattern,
+    log_folder,
+    filter_out=[],
+    max_lines: Optional[int] = None,
+    log_files: Optional[list[str]] = None,
+):
     if not is_lnav_available():
         _warn_lnav_missing_once()
-        return _python_get_log(pattern, log_folder, filter_out, max_lines=max_lines)
+        return _python_get_log(
+            pattern, log_folder, filter_out, max_lines=max_lines, log_files=log_files
+        )
+
+    # lnav target: explicit file list when filtered, whole folder otherwise.
+    lnav_targets = log_files if log_files is not None else [log_folder]
+    if not lnav_targets:
+        return ""
 
     if pattern:
         pattern = re.escape(pattern)
@@ -118,13 +143,14 @@ def get_log(pattern, log_folder, filter_out=[], max_lines: Optional[int] = None)
         cmd = ["lnav", "-n"]
     for f in filter_out:
         cmd.extend(["-c", rf":filter-out {f}"])
-    cmd.append(log_folder)
+    cmd.extend(lnav_targets)
 
     # If max_lines is set, ask lnav for the row count and only apply
     # slicing commands when the view actually contains more than max_lines.
     should_slice = False
+    lnav_count_target = lnav_targets[0] if len(lnav_targets) == 1 else log_folder
     if isinstance(max_lines, int) and max_lines > 0:
-        line_count = _lnav_log_line_count(log_folder)
+        line_count = _lnav_log_line_count(lnav_count_target)
         should_slice = line_count is not None and line_count > max_lines
 
     # If there are more than max_lines, restrict the view in lnav:
@@ -163,4 +189,6 @@ def get_log(pattern, log_folder, filter_out=[], max_lines: Optional[int] = None)
         proc.returncode,
         stderr_text.strip() or "(empty)",
     )
-    return _python_get_log(pattern, log_folder, filter_out, max_lines=max_lines)
+    return _python_get_log(
+        pattern, log_folder, filter_out, max_lines=max_lines, log_files=log_files
+    )

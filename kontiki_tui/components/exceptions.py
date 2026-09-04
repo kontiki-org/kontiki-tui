@@ -2,9 +2,19 @@ import json
 import logging
 from datetime import datetime
 
+from textual import on
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.widgets import DataTable, Input, Label, Select, Static
+
+from kontiki_tui.components.group_filter import (
+    GROUP_FILTER_SELECT_CLASS,
+    GroupFilterChanged,
+    current_group_filter,
+    is_group_filter_sync,
+    make_group_filter_select,
+    refresh_group_filter_options,
+)
 
 
 class ExceptionsTab(Static):
@@ -18,6 +28,7 @@ class ExceptionsTab(Static):
         self.field_input = None
         self.value_input = None
         self.limit_input = None
+        self.group_filter_select = None
         self._exceptions_cache = []
         self.field_options = [
             ("All", "all"),
@@ -53,6 +64,12 @@ class ExceptionsTab(Static):
                 yield Label("Limit:")
                 self.limit_input = Input(value="500", id="exceptions_limit")
                 yield self.limit_input
+                label, select = make_group_filter_select(
+                    self.app, "exceptions_group_filter"
+                )
+                self.group_filter_select = select
+                yield label
+                yield select
 
             table = DataTable(
                 id="exceptions_table",
@@ -83,7 +100,19 @@ class ExceptionsTab(Static):
         if event.input.id in {"exceptions_value", "exceptions_limit"}:
             self._render_table_from_cache()
 
+    @on(Select.Changed)
     def on_select_changed(self, event: Select.Changed) -> None:
+        if GROUP_FILTER_SELECT_CLASS in event.select.classes:
+            if is_group_filter_sync(self.app):
+                return
+            value = event.value
+            if value is None or value is Select.BLANK:
+                return
+            value = str(value)
+            if value == current_group_filter(self.app):
+                return
+            self.post_message(GroupFilterChanged(value))
+            return
         if event.select.id == "exceptions_field":
             self._sync_value_input_state()
             self._render_table_from_cache()
@@ -196,8 +225,12 @@ class ExceptionsTab(Static):
             logging.error("Services backend instance not available on app")
             return
 
+        if self.group_filter_select is not None:
+            await refresh_group_filter_options(self.app, self.group_filter_select)
+        group_filter = current_group_filter(self.app)
+
         try:
-            exc_list = await services_backend.get_exceptions()
+            exc_list = await services_backend.get_exceptions(group_filter=group_filter)
         except Exception as e:
             logging.error(f"Error getting exceptions from backend: {e}", exc_info=True)
             return
