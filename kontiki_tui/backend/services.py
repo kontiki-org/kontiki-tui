@@ -1,7 +1,6 @@
 import logging
-import socket
+from datetime import datetime, timezone
 
-import psutil
 from kontiki.registry import ServiceRegistryProxy
 
 
@@ -243,49 +242,32 @@ class Services:
                 result.append(full_path)
         return result
 
-    def get_stats(self, pid: int, host: str) -> dict:
-        logger = logging.getLogger("kontiki_tui")
 
-        # Collect stats only for the local host
-        local_hostnames = {socket.gethostname(), "localhost", "127.0.0.1"}
-        if host not in local_hostnames:
-            return {}
+def format_last_heartbeat(last_heartbeat):
+    """Return ``last_heartbeat`` as ``YYYY-MM-DD HH:MM:SS`` UTC, or empty."""
+    if last_heartbeat is None:
+        return ""
+    if not isinstance(last_heartbeat, str):
+        return str(last_heartbeat)
+    text = last_heartbeat.strip()
+    if not text:
+        return ""
 
-        try:
-            # Ensure pid is an integer
-            try:
-                pid_int = int(pid) if pid else None
-            except (ValueError, TypeError):
-                logger.warning(f"Invalid PID format: {pid}")
-                return {}
+    parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    else:
+        parsed = parsed.astimezone(timezone.utc)
+    return parsed.replace(microsecond=0).strftime("%Y-%m-%d %H:%M:%S")
 
-            if pid_int is None:
-                return {}
 
-            p = psutil.Process(pid_int)
-
-            cpu_percent = p.cpu_percent(interval=0.0)
-
-            # RSS memory in MB
-            mem_info = p.memory_info()
-            mem_mb = round(mem_info.rss / (1024 * 1024), 1)
-
-            logger.debug(f"Stats for PID {pid_int}: CPU={cpu_percent}%, MEM={mem_mb}MB")
-
-            try:
-                fd_count = p.num_fds()
-            except AttributeError:
-                fd_count = ""
-
-            return {
-                "cpu_percent": cpu_percent,
-                "mem_mb": mem_mb,
-                "fd_count": fd_count,
-            }
-
-        except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
-            logger.warning(f"psutil cannot access pid {pid}: {e}")
-            return {}
-        except Exception as e:
-            logger.error(f"Error collecting stats for pid {pid}: {e}", exc_info=True)
-            return {}
+def format_degraded_reason(reason):
+    """Display helper for registry ``degraded_reason`` (``-`` when absent)."""
+    if reason is None:
+        return "-"
+    if not isinstance(reason, str):
+        return str(reason)
+    text = reason.strip()
+    if not text:
+        return "-"
+    return text

@@ -1,10 +1,12 @@
 import asyncio
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
 from kontiki_tui.backend.services import (
     Services,
+    format_degraded_reason,
+    format_last_heartbeat,
     implied_platform_group,
     matches_group_filter,
     normalize_registration_group,
@@ -114,46 +116,22 @@ def test_filter_registry_events(services):
     assert kept_internal == events
 
 
-def test_get_stats_returns_empty_for_non_local_host(services):
-    assert services.get_stats(pid=123, host="some-remote-host") == {}
+def test_format_last_heartbeat():
+    assert format_last_heartbeat(None) == ""
+    assert format_last_heartbeat("") == ""
+    assert format_last_heartbeat("  ") == ""
+    assert (
+        format_last_heartbeat("2026-09-04T11:59:48.123456+00:00")
+        == "2026-09-04 11:59:48"
+    )
+    assert format_last_heartbeat("2026-09-04T11:59:48Z") == "2026-09-04 11:59:48"
 
 
-def test_get_stats_returns_empty_for_invalid_pid(services):
-    with patch(
-        "kontiki_tui.backend.services.socket.gethostname", return_value="myhost"
-    ):
-        assert services.get_stats(pid="not-a-pid", host="myhost") == {}
-
-
-def test_get_stats_returns_cpu_mem_fd_for_local_pid(services):
-    proc = Mock()
-    proc.cpu_percent.return_value = 12.5
-
-    mem_info = Mock()
-    mem_info.rss = 50 * 1024 * 1024  # 50 MB
-    proc.memory_info.return_value = mem_info
-    proc.num_fds.return_value = 42
-
-    with (
-        patch("kontiki_tui.backend.services.socket.gethostname", return_value="myhost"),
-        patch("kontiki_tui.backend.services.psutil.Process", return_value=proc),
-    ):
-        stats = services.get_stats(pid=123, host="myhost")
-        assert stats["cpu_percent"] == 12.5
-        assert stats["mem_mb"] == 50.0
-        assert stats["fd_count"] == 42
-
-
-def test_get_stats_returns_empty_when_psutil_raises(services):
-    # psutil exceptions are swallowed and should return {}
-    with (
-        patch("kontiki_tui.backend.services.socket.gethostname", return_value="myhost"),
-        patch(
-            "kontiki_tui.backend.services.psutil.Process",
-            side_effect=Exception("boom"),
-        ),
-    ):
-        assert services.get_stats(pid=123, host="myhost") == {}
+def test_format_degraded_reason():
+    assert format_degraded_reason(None) == "-"
+    assert format_degraded_reason("") == "-"
+    assert format_degraded_reason("   ") == "-"
+    assert format_degraded_reason("amqp timeout") == "amqp timeout"
 
 
 def test_get_events_filters_observer_and_registry_noise(services):

@@ -17,7 +17,7 @@ It is built with [Textual](https://textual.textualize.io/), a Python TUI framewo
 
 It is “engineering‑tool” oriented:
 
-- quick view of **running services** (status, pid/host, version, local stats when possible),
+- quick view of **running services** (status, last heartbeat, degraded reason, host/pid, version),
 - inspect **events** and **exceptions** recorded by the registry,
 - read **logs** without leaving the terminal.
 
@@ -25,8 +25,9 @@ It is “engineering‑tool” oriented:
 
 ## Tabs
 
-- **Services**: registered services with `status`, `pid/host`, `version` and local stats
-  (CPU/MEM/FD when possible, otherwise `N/A`). Selecting a row shows the configuration/metadata in JSON.
+- **Services**: registered services with status, last heartbeat, degraded reason,
+  host/pid, and version (Kontiki ≥1.9.0). Selecting a row shows the
+  configuration/metadata in JSON.
 
   Defaults to the **business** registration group via the session **Group** Select
   on each monitoring tab (`all` / `business` / `platform` / …). Changing it in one

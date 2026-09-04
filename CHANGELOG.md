@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.0.0] - 2026-09-03
+## [1.0.0] - 2026-09-04
 
 - Session **Group** Select on Services / Events / Exceptions / Logs: change in one
   tab updates all tabs. Default at startup is `business`. Options: `all` + groups
@@ -12,7 +12,12 @@
   Logs never open `ServiceRegistry-*.log`.
 - Removed config key `services.group_filter` (UI-only session filter).
 - Services tab shows Kontiki **short instance id** (12 hex) instead of the full UUID.
-- Require Kontiki `>=1.8.1` (`logging.directory` / predictable log file naming).
+- Services tab shows registry **Last Heartbeat** (full ISO timestamp) and
+  **Degraded Reason** from Kontiki `get_services` (`last_heartbeat`,
+  `degraded_reason`; reason shows `-` when absent).
+- Removed local CPU / memory / open-FD columns (`psutil`).
+- Require Kontiki `>=1.9.0` (instance health on `get_services`; log file naming
+  from ≥1.8.1).
 - Updated example stack (`common.docker.yaml`) to use `logging.directory: logs`;
   removed manual `filename` from service configs.
 
