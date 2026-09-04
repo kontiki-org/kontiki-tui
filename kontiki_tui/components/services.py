@@ -1,13 +1,12 @@
 import json
 import logging
 
+from kontiki.messaging.flow import short_instance_id
 from rich.text import Text
 from textual import on
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.widgets import DataTable, Select, Static, TextArea
-
-from kontiki.messaging.flow import short_instance_id
 
 from kontiki_tui.backend.services import (
     format_degraded_reason,

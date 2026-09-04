@@ -71,6 +71,7 @@ def test_group_filter_select_options_includes_defaults():
     assert "business" in values
     assert "platform" in values
 
+
 def test_implied_platform_group():
     assert implied_platform_group("ServiceRegistry") == "platform"
     assert implied_platform_group("OrderSvc") is None
@@ -345,9 +346,7 @@ def test_get_log_files_always_excludes_service_registry(services, tmp_path):
         )
     )
     for group_filter in ("business", "platform", "all"):
-        out = asyncio.run(
-            services.get_log_files_for_group(str(tmp_path), group_filter)
-        )
+        out = asyncio.run(services.get_log_files_for_group(str(tmp_path), group_filter))
         assert all("ServiceRegistry" not in path for path in out)
     business = asyncio.run(services.get_log_files_for_group(str(tmp_path), "business"))
     assert len(business) == 1

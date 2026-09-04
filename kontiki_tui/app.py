@@ -306,9 +306,7 @@ class KontikiTuiApp(App):
         elif pane.query(EventsTab):
             self.run_worker(self.query_one("#events", EventsTab).update_table())
         elif pane.query(ExceptionsTab):
-            self.run_worker(
-                self.query_one("#exceptions", ExceptionsTab).update_table()
-            )
+            self.run_worker(self.query_one("#exceptions", ExceptionsTab).update_table())
         elif pane.query(LogTab):
             self.run_worker(self._refresh_logs_tab(self.query_one("#log", LogTab)))
 
