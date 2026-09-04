@@ -124,3 +124,54 @@ def test_get_log_falls_back_to_python_when_lnav_stderr_has_error(tmp_logs_dir):
             max_lines=50,
         )
     assert out.splitlines() == ["line 1", "line 2", "line 3"]
+
+
+# ---------------------------------------------------------------------------
+# log_files parameter (group-filtered list)
+# ---------------------------------------------------------------------------
+
+
+def test_python_get_log_with_log_files(tmp_logs_dir: Path):
+    biz = tmp_logs_dir / "OrderSvc-aabbccddeeff.log"
+    plat = tmp_logs_dir / "PlatformSvc-112233445566.log"
+    biz.write_text("biz line\n", encoding="utf-8")
+    plat.write_text("plat line\n", encoding="utf-8")
+
+    # Only pass the business file.
+    out = log_backend._python_get_log(
+        pattern="",
+        log_folder=str(tmp_logs_dir),
+        filter_out=[],
+        log_files=[str(biz)],
+    )
+    assert out.strip() == "biz line"
+    assert "plat line" not in out
+
+
+def test_python_get_log_empty_log_files_list(tmp_logs_dir: Path):
+    (tmp_logs_dir / "a.log").write_text("something\n", encoding="utf-8")
+    out = log_backend._python_get_log(
+        pattern="",
+        log_folder=str(tmp_logs_dir),
+        filter_out=[],
+        log_files=[],
+    )
+    assert out == ""
+
+
+def test_get_log_passes_log_files_to_lnav():
+    with (
+        patch.object(log_backend, "is_lnav_available", return_value=True),
+        patch.object(log_backend, "_lnav_log_line_count", return_value=5),
+        patch.object(log_backend.subprocess, "run") as run,
+    ):
+        run.return_value = Mock(returncode=0, stdout=b"ok\n", stderr=b"")
+        log_backend.get_log(
+            pattern="",
+            log_folder="logs",
+            filter_out=[],
+            log_files=["logs/OrderSvc-aabbccddeeff.log"],
+        )
+        called_cmd = run.call_args[0][0]
+        assert "logs/OrderSvc-aabbccddeeff.log" in called_cmd
+        assert "logs" not in [arg for arg in called_cmd if arg == "logs"]

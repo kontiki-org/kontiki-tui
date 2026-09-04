@@ -1,29 +1,40 @@
 import json
 import logging
 
+from rich.text import Text
 from textual import on
 from textual.binding import Binding
-from textual.containers import Vertical
-from textual.widgets import DataTable, Static, TextArea
+from textual.containers import Horizontal, Vertical
+from textual.widgets import DataTable, Select, Static, TextArea
+
+from kontiki.messaging.flow import short_instance_id
 
 from kontiki_tui.backend.services import (
+    format_degraded_reason,
+    format_last_heartbeat,
     matches_group_filter,
     normalize_registration_group,
 )
-from kontiki_tui.config import get_group_filter
+from kontiki_tui.components.group_filter import (
+    GROUP_FILTER_SELECT_CLASS,
+    GroupFilterChanged,
+    current_group_filter,
+    is_group_filter_sync,
+    make_group_filter_select,
+    refresh_group_filter_options,
+)
 
 # -----------------------------------------------------------------------------
 
 _BASE_HEADERS = {
-    "service_name": "Service Name",
-    "instance_id": "Service Instance ID",
-    "status": "Status",
-    "pid": "PID",
-    "host": "Host",
+    "service_name": "Service ID",
+    "instance_id": "Short Instance ID",
     "service_version": "Version",
-    "cpu_percent": "CPU (%)",
-    "mem_mb": "Memory (MB)",
-    "fd_count": "Open FDs",
+    "status": "Status",
+    "host": "Host",
+    "pid": "PID",
+    "last_heartbeat": "Last Heartbeat",
+    "degraded_reason": "Degraded Reason",
 }
 
 
@@ -36,6 +47,7 @@ class ServicesTab(Static):
         super().__init__(id=id_)
         self.services_table = None
         self.config_view = None
+        self.group_filter_select = None
         self.row_data_map = {}  # Map row_key -> dict of original values
         self.headers = dict(_BASE_HEADERS)
 
@@ -53,6 +65,13 @@ class ServicesTab(Static):
 
     def compose(self):
         with Vertical(id="services_split"):
+            with Horizontal(id="services_group_filter_row"):
+                label, select = make_group_filter_select(
+                    self.app, "services_group_filter"
+                )
+                self.group_filter_select = select
+                yield label
+                yield select
             table = DataTable(
                 id="services_table",
                 classes="datatables",
@@ -70,16 +89,22 @@ class ServicesTab(Static):
             self.config_view = config_view
             yield config_view
 
-    def on_mount(self) -> None:
-        # Focus will be set when the tab is activated, not on mount
-        # to avoid focus conflicts between tabs
-        # Start a periodic refresh of psutil-based stats (CPU, MEM, FDs)
-        # without re-querying the service registry each time.
-        self.set_interval(5.0, self._refresh_stats_only)
+    def _session_group_filter(self):
+        return current_group_filter(self.app)
 
-    def _group_filter_from_conf(self):
-        conf = self.app.conf if isinstance(self.app.conf, dict) else {}
-        return get_group_filter(conf)
+    @on(Select.Changed)
+    def on_group_filter_select_changed(self, event: Select.Changed) -> None:
+        if GROUP_FILTER_SELECT_CLASS not in event.select.classes:
+            return
+        if is_group_filter_sync(self.app):
+            return
+        value = event.value
+        if value is None or value is Select.BLANK:
+            return
+        value = str(value)
+        if value == current_group_filter(self.app):
+            return
+        self.post_message(GroupFilterChanged(value))
 
     async def action_refresh_services(self) -> None:
         """Refresh the services table from the registry."""
@@ -100,10 +125,16 @@ class ServicesTab(Static):
 
     def _row_to_tuple(self, row_dict: dict) -> tuple:
         """Convert an internal row dict to a tuple in the correct column order."""
-        # Create a copy and convert status to emoji for display
         display_dict = row_dict.copy()
         display_dict["status"] = self._status_to_emoji(row_dict.get("status", ""))
-        return tuple(display_dict.get(key, "") for key in self.headers.keys())
+        cells = []
+        for index, key in enumerate(self.headers.keys()):
+            value = str(display_dict.get(key, "") or "")
+            if index == 0:
+                cells.append(value)
+            else:
+                cells.append(Text(value, justify="center"))
+        return tuple(cells)
 
     async def update_table(self) -> None:
         """Fetch services from backend and update the services table."""
@@ -127,7 +158,9 @@ class ServicesTab(Static):
             logging.error(f"Error getting services from backend: {e}", exc_info=True)
             return
 
-        group_filter = self._group_filter_from_conf()
+        group_filter = self._session_group_filter()
+        if self.group_filter_select is not None:
+            await refresh_group_filter_options(self.app, self.group_filter_select)
         self.headers = self._headers_for_filter(group_filter)
 
         rows = []
@@ -152,57 +185,21 @@ class ServicesTab(Static):
                 host = metadata.get("host", "")
                 version = metadata.get("service_version", "")
 
-                # Stats CPU/memory/I/O, retrieved via get_stats(pid, host)
-                stats = {}
-                if pid and host:
-                    try:
-                        # Convert pid to int if it's a string
-                        pid_for_stats = (
-                            int(pid) if isinstance(pid, str) and pid.isdigit() else pid
-                        )
-                        stats = services_backend.get_stats(pid_for_stats, host)
-                        logging.debug(
-                            f"Stats for PID {pid_for_stats} on {host}: {stats}"
-                        )
-                    except (ValueError, TypeError) as e:
-                        logging.warning(f"Invalid PID format '{pid}': {e}")
-                        stats = {}
-                    except Exception as e:
-                        logging.warning(
-                            f"Error getting stats for pid {pid}: {e}", exc_info=True
-                        )
-                        stats = {}
-
-                # If we have enough metadata but can't collect stats
-                # (e.g. docker/remote), show N/A instead of empty cells.
-                stats_available = bool(stats) if (pid and host) else False
-                cpu_value = (
-                    stats.get("cpu_percent", "")
-                    if stats_available
-                    else ("N/A" if (pid and host) else "")
-                )
-                mem_value = (
-                    stats.get("mem_mb", "")
-                    if stats_available
-                    else ("N/A" if (pid and host) else "")
-                )
-                fd_value = (
-                    stats.get("fd_count", "")
-                    if stats_available
-                    else ("N/A" if (pid and host) else "")
-                )
-
+                full_instance_id = metadata.get("instance_id", instance_id)
                 row_dict = {
                     "service_name": metadata.get("service_name", service_name),
-                    "instance_id": metadata.get("instance_id", instance_id),
+                    "instance_id": short_instance_id(str(full_instance_id or "")),
                     "status": status,
+                    "last_heartbeat": format_last_heartbeat(
+                        entry.get("last_heartbeat")
+                    ),
+                    "degraded_reason": format_degraded_reason(
+                        entry.get("degraded_reason")
+                    ),
                     "pid": pid,
                     "host": host,
                     "service_version": version,
                     "group": group,
-                    "cpu_percent": cpu_value,
-                    "mem_mb": mem_value,
-                    "fd_count": fd_value,
                     # Extra fields not displayed in the table but used
                     # for the config view
                     "config": config,
@@ -214,7 +211,11 @@ class ServicesTab(Static):
 
         # Rebuild columns so business vs all can show/hide the group column.
         self.services_table.clear(columns=True)
-        self.services_table.add_columns(*tuple(self.headers.values()))
+        for index, label in enumerate(self.headers.values()):
+            if index == 0:
+                self.services_table.add_column(label)
+            else:
+                self.services_table.add_column(Text(str(label), justify="center"))
         logging.info(f"Added {len(self.headers)} columns to services table")
 
         self.row_data_map = {}  # Reset the mapping
@@ -287,74 +288,3 @@ class ServicesTab(Static):
             logging.warning(
                 f"cursor_row {cursor_row} out of range (max: {len(row_keys) - 1})"
             )
-
-    def _refresh_stats_only(self) -> None:
-        """Refresh only psutil-based stats (CPU, MEM, FDs) for local services."""
-        if self.services_table is None or not self.row_data_map:
-            return
-
-        services_backend = getattr(self.app, "services", None)
-        if services_backend is None:
-            logging.error("Services backend instance not available on app")
-            return
-
-        for row_key, row_dict in self.row_data_map.items():
-            pid = row_dict.get("pid")
-            host = row_dict.get("host")
-            if not pid or not host:
-                continue
-
-            try:
-                stats = services_backend.get_stats(pid, host)
-            except Exception as e:
-                logging.warning(
-                    f"Error refreshing stats for pid {pid}: {e}", exc_info=True
-                )
-                continue
-
-            if not stats:
-                continue
-
-            # Update the values in memory
-            row_dict["cpu_percent"] = stats.get("cpu_percent", "")
-            row_dict["mem_mb"] = stats.get("mem_mb", "")
-            row_dict["fd_count"] = stats.get("fd_count", "")
-
-            # Update the cells in the DataTable with update_cell
-            # row_key is the actual row key returned by add_rows()
-
-            # Check that the row exists in the table
-            if row_key not in self.services_table.rows:
-                logging.warning(f"Row key {row_key} not found in services table")
-                continue
-
-            # Get the actual column keys from the DataTable
-            column_keys = list(self.services_table.columns.keys())
-            try:
-                # Find the indices of the columns to update
-                cpu_col_idx = list(self.headers.keys()).index("cpu_percent")
-                mem_col_idx = list(self.headers.keys()).index("mem_mb")
-                fd_col_idx = list(self.headers.keys()).index("fd_count")
-
-                # Check that the indices are valid
-                if (
-                    cpu_col_idx < len(column_keys)
-                    and mem_col_idx < len(column_keys)
-                    and fd_col_idx < len(column_keys)
-                ):
-                    self.services_table.update_cell(
-                        row_key, column_keys[cpu_col_idx], row_dict["cpu_percent"]
-                    )
-                    self.services_table.update_cell(
-                        row_key, column_keys[mem_col_idx], row_dict["mem_mb"]
-                    )
-                    self.services_table.update_cell(
-                        row_key, column_keys[fd_col_idx], row_dict["fd_count"]
-                    )
-                else:
-                    logging.warning(f"Column indices out of range for row {row_key}")
-            except Exception as e:
-                logging.warning(
-                    f"Error updating services table row {row_key}: {e}",
-                    exc_info=True,
-                )

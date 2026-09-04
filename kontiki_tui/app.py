@@ -13,6 +13,11 @@ from kontiki_tui.backend.log import get_log, is_lnav_available
 from kontiki_tui.backend.services import Services
 from kontiki_tui.components.events import EventsTab
 from kontiki_tui.components.exceptions import ExceptionsTab
+from kontiki_tui.components.group_filter import (
+    GroupFilterChanged,
+    current_group_filter,
+    sync_group_filter_selects,
+)
 from kontiki_tui.components.log import LogTab, render_log_output
 from kontiki_tui.components.prompt import ErrorPrompt, InfoPrompt, Prompt
 from kontiki_tui.components.services import ServicesTab
@@ -67,6 +72,9 @@ class KontikiTuiApp(App):
         self._amqp_url = None
         self.conf = {}
         self.services = None
+        # Session group filter (Selects sync on this). Init from config on load.
+        self.group_filter = "business"
+        self._syncing_group_filter = 0
 
     async def action_quit(self) -> None:
         if self.messenger is not None:
@@ -109,7 +117,9 @@ class KontikiTuiApp(App):
         self._show_prompt(message, timeout, InfoPrompt)
 
     @work(thread=True, exclusive=True, exit_on_error=False)
-    def load_logs_worker(self, pattern: str, exclude_noise: bool) -> None:
+    def load_logs_worker(
+        self, pattern: str, exclude_noise: bool, log_files: list = None
+    ) -> None:
         """Background worker to load logs with lnav without blocking the UI."""
         logger = logging.getLogger("kontiki_tui")
         try:
@@ -130,7 +140,13 @@ class KontikiTuiApp(App):
                 "max-lines", BASE_CONF.get("logs", {}).get("max-lines")
             )
 
-            raw_output = get_log(pattern, log_folder, filter_out, max_lines=max_lines)
+            raw_output = get_log(
+                pattern,
+                log_folder,
+                filter_out,
+                max_lines=max_lines,
+                log_files=log_files,
+            )
 
             def update_ui() -> None:
                 try:
@@ -213,6 +229,7 @@ class KontikiTuiApp(App):
         self._amqp_url = amqp_url
 
         self.services = Services(self.messenger)
+        sync_group_filter_selects(self, self.group_filter)
 
         # Initialize focus for the default tab (View) after configuration load
         # to avoid focus conflicts during mount
@@ -258,7 +275,7 @@ class KontikiTuiApp(App):
                 services_tab.services_table.focus()
         elif tab_label == "Logs":
             log_tab = self.query_one("#log", LogTab)
-            log_tab.action_refresh_logs()
+            self.run_worker(self._refresh_logs_tab(log_tab))
         elif tab_label == "Events":
             events_tab = self.query_one("#events", EventsTab)
             self.run_worker(events_tab.update_table())
@@ -270,6 +287,45 @@ class KontikiTuiApp(App):
             if exceptions_tab.exceptions_table is not None:
                 exceptions_tab.exceptions_table.focus()
 
+    async def _refresh_logs_tab(self, log_tab: LogTab) -> None:
+        await log_tab.prepare_group_filter_options()
+        log_tab.action_refresh_logs()
+
+    def _refresh_active_group_filtered_tab(self) -> None:
+        """Refresh only the visible tab (avoids concurrent registry RPC storms).
+
+        TabbedContent.active is the auto TabPane id (``tab-1``, …), not the
+        child widget id (``services``). Resolve via the active pane's child.
+        """
+        tabbed = self.query_one("#kontiki_tabs", TabbedContent)
+        pane = tabbed.active_pane
+        if pane is None:
+            return
+        if pane.query(ServicesTab):
+            self.run_worker(self.query_one("#services", ServicesTab).update_table())
+        elif pane.query(EventsTab):
+            self.run_worker(self.query_one("#events", EventsTab).update_table())
+        elif pane.query(ExceptionsTab):
+            self.run_worker(
+                self.query_one("#exceptions", ExceptionsTab).update_table()
+            )
+        elif pane.query(LogTab):
+            self.run_worker(self._refresh_logs_tab(self.query_one("#log", LogTab)))
+
+    @on(GroupFilterChanged)
+    async def on_group_filter_changed(self, event: GroupFilterChanged) -> None:
+        """Keep session filter + all Selects in sync, then refresh the active tab."""
+        value = str(event.group_filter).strip() or "business"
+        if value == self.group_filter:
+            sync_group_filter_selects(self, value)
+            return
+        self.group_filter = value
+        sync_group_filter_selects(self, value)
+        logging.getLogger("kontiki_tui").info("group_filter session set to %r", value)
+        # Only the active tab: refreshing all four in parallel caused Select
+        # resets to "all" and kontiki "Response … already handled" warnings.
+        self._refresh_active_group_filtered_tab()
+
     @on(LogTab.UpdateLog)
     def on_update_log(self, event: LogTab.UpdateLog) -> None:
         """Start log loading in background without blocking the UI."""
@@ -279,10 +335,37 @@ class KontikiTuiApp(App):
             log_widget = log_tab.query_one("#logs", RichLog)
             log_widget.clear()
             log_widget.write("Loading logs...")
-            # Launch background worker; returns immediately
-            self.load_logs_worker(event.pattern, event.exclude_noise)
+            # Resolve group-filtered file list async, then launch thread worker.
+            self.run_worker(self._start_log_worker(event.pattern, event.exclude_noise))
         except Exception as e:
             logger.warning(f"Could not start log worker: {e}", exc_info=True)
+
+    async def _start_log_worker(self, pattern: str, exclude_noise: bool) -> None:
+        """Resolve log files for the current group_filter
+        then start the thread worker."""
+        logger = logging.getLogger("kontiki_tui")
+        logs_conf = self.conf.get("logs", {})
+        log_folder = logs_conf.get("directory")
+        log_files = None
+
+        if log_folder and self.services is not None:
+            group_filter = current_group_filter(self)
+            try:
+                log_files = await self.services.get_log_files_for_group(
+                    log_folder, group_filter
+                )
+                logger.info(
+                    "Log files for group_filter=%r: %d file(s)",
+                    group_filter,
+                    len(log_files),
+                )
+            except Exception as e:
+                logger.warning(
+                    "Could not resolve log files for group filter: %s", e, exc_info=True
+                )
+                log_files = None  # fall back to full folder
+
+        self.load_logs_worker(pattern, exclude_noise, log_files=log_files)
 
     @on(SettingsTab.SettingsSave)
     async def on_settings_save(self, event: SettingsTab.SettingsSave) -> None:

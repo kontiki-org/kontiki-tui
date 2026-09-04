@@ -17,7 +17,7 @@ It is built with [Textual](https://textual.textualize.io/), a Python TUI framewo
 
 It is “engineering‑tool” oriented:
 
-- quick view of **running services** (status, pid/host, version, local stats when possible),
+- quick view of **running services** (status, last heartbeat, degraded reason, host/pid, version),
 - inspect **events** and **exceptions** recorded by the registry,
 - read **logs** without leaving the terminal.
 
@@ -25,27 +25,36 @@ It is “engineering‑tool” oriented:
 
 ## Tabs
 
-- **Services**: registered services with `status`, `pid/host`, `version` and local stats
-  (CPU/MEM/FD when possible, otherwise `N/A`). Selecting a row shows the configuration/metadata in JSON.
+- **Services**: registered services with status, last heartbeat, degraded reason,
+  host/pid, and version (Kontiki ≥1.9.0). Selecting a row shows the
+  configuration/metadata in JSON.
 
-  Defaults to the **business** registration group (`services.group_filter: business` in
-  `~/.config/kontiki_tui.yaml`; set to `all` to include platform services). Missing/blank
-  Registry `group` counts as business. The Logs tab is not filtered by group.
+  Defaults to the **business** registration group via the session **Group** Select
+  on each monitoring tab (`all` / `business` / `platform` / …). Changing it in one
+  tab updates all tabs. Missing/blank Registry `group` counts as business.
+  Instance column shows the Kontiki short id (12 hex), not the full UUID.
 
   ![Services tab](assets/services.png)
 
 - **Events**: events tracked by the registry, with local filters (`Field`/`Value`/`Limit`).
-  RPC-like events are displayed as `rpc:<remote_method>` when `event_type` is empty.
+  Domain publishes and RPC calls are shown (`rpc:<remote_method>` when there is no
+  `event_type`). Hides registry bookkeeping and TUI observer traffic.
+  Filtered by the same session Group Select (registry jointure).
+  Deregistered instances fall back to `business`.
 
   ![Events tab](assets/events.png)
 
 - **Exceptions**: exceptions from the registry exception tracker, with the same local filtering approach.
-  The `context` payload is shown compactly.
+  Also filtered by the session Group Select. The `context` payload is shown compactly.
 
   ![Exceptions tab](assets/exceptions.png)
 
 - **Logs**: reads configured log files from `logs.directory` and displays them in the UI.
   Uses `lnav` when available; otherwise it falls back to a Python reader.
+  When services use Kontiki ≥1.8.1 (`logging.directory` in their config), log files
+  are named `{service_name}-{short_instance_id}.log` and filtered by the session
+  Group Select. `ServiceRegistry-*.log` is never included (observer / registry
+  process noise). Files that do not follow Kontiki naming are always shown.
 
   ![Logs tab](assets/logs.png)
 
