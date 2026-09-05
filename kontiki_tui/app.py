@@ -1,4 +1,5 @@
 import logging
+from importlib.metadata import version as package_version
 from pathlib import Path
 from typing import Type
 
@@ -239,7 +240,7 @@ class KontikiTuiApp(App):
 
     async def on_mount(self):
         self.title = "KontikiTUI"
-        self.sub_title = "Kontiki monitoring software."
+        self.sub_title = package_version("kontiki-tui")
 
         await self._init_from_conf()
         if not is_lnav_available():
