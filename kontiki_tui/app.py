@@ -17,6 +17,7 @@ from kontiki_tui.components.exceptions import ExceptionsTab
 from kontiki_tui.components.group_filter import (
     GroupFilterChanged,
     current_group_filter,
+    refresh_group_filter_options,
     sync_group_filter_selects,
 )
 from kontiki_tui.components.log import LogTab, render_log_output
@@ -73,8 +74,8 @@ class KontikiTuiApp(App):
         self._amqp_url = None
         self.conf = {}
         self.services = None
-        # Session group filter (Selects sync on this). Init from config on load.
-        self.group_filter = "business"
+        # Session group filter (Selects sync on this).
+        self.group_filter = "all"
         self._syncing_group_filter = 0
 
     async def action_quit(self) -> None:
@@ -230,7 +231,7 @@ class KontikiTuiApp(App):
         self._amqp_url = amqp_url
 
         self.services = Services(self.messenger)
-        sync_group_filter_selects(self, self.group_filter)
+        await refresh_group_filter_options(self)
 
         # Initialize focus for the default tab (View) after configuration load
         # to avoid focus conflicts during mount
@@ -314,7 +315,7 @@ class KontikiTuiApp(App):
     @on(GroupFilterChanged)
     async def on_group_filter_changed(self, event: GroupFilterChanged) -> None:
         """Keep session filter + all Selects in sync, then refresh the active tab."""
-        value = str(event.group_filter).strip() or "business"
+        value = str(event.group_filter).strip() or "all"
         if value == self.group_filter:
             sync_group_filter_selects(self, value)
             return

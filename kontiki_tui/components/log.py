@@ -96,7 +96,7 @@ class LogTab(Static):
 
     async def prepare_group_filter_options(self) -> None:
         if self.group_filter_select is not None:
-            await refresh_group_filter_options(self.app, self.group_filter_select)
+            await refresh_group_filter_options(self.app)
 
     def action_refresh_logs(self) -> None:
         pattern_input = self.query_one("#pattern_input", Input).value

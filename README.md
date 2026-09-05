@@ -34,9 +34,9 @@ The Header subtitle is the installed KontikiTUI version.
   (`Field`/`Value`) match service name, instance id, status, host, service
   version, or Kontiki version.
 
-  Defaults to the **business** registration group via the session **Group** Select
-  on each monitoring tab (`all` / `business` / `platform` / …). Changing it in one
-  tab updates all tabs. Missing/blank Registry `group` counts as business.
+  Defaults to **all** via the session **Group** Select on each monitoring tab.
+  Options are `all` plus groups discovered in the live registry. Changing it in
+  one tab updates all tabs. Missing/blank Registry `group` counts as business.
   Instance column shows the Kontiki short id (12 hex), not the full UUID.
 
   ![Services tab](assets/services.png)

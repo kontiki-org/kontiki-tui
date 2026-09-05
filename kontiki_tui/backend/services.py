@@ -40,12 +40,9 @@ def implied_platform_group(service_name):
 
 
 def group_filter_select_options(discovered_groups):
-    """Build Select options: All first, then known groups (sorted)."""
-    groups = set(discovered_groups or [])
-    groups.add("business")
-    groups.add("platform")
+    """Build Select options: All first, then groups seen in the registry."""
     options = [("All", "all")]
-    for name in sorted(groups):
+    for name in sorted(set(discovered_groups or [])):
         options.append((name, name))
     return options
 

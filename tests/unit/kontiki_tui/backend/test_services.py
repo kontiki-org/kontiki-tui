@@ -61,15 +61,22 @@ def test_matches_group_filter_all():
     assert matches_group_filter("batch", "all")
 
 
-def test_group_filter_select_options_includes_defaults():
+def test_group_filter_select_options_from_discovered():
     from kontiki_tui.backend.services import group_filter_select_options
 
-    options = group_filter_select_options(["batch"])
+    options = group_filter_select_options(["earth", "batch"])
     values = [v for _, v in options]
     assert values[0] == "all"
-    assert "batch" in values
-    assert "business" in values
-    assert "platform" in values
+    assert values[1:] == ["batch", "earth"]
+    assert "business" not in values
+    assert "platform" not in values
+
+
+def test_group_filter_select_options_empty():
+    from kontiki_tui.backend.services import group_filter_select_options
+
+    assert [v for _, v in group_filter_select_options([])] == ["all"]
+    assert [v for _, v in group_filter_select_options(None)] == ["all"]
 
 
 def test_implied_platform_group():
