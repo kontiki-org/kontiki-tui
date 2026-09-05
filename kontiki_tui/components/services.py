@@ -6,7 +6,7 @@ from rich.text import Text
 from textual import on
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
-from textual.widgets import DataTable, Select, Static, TextArea
+from textual.widgets import DataTable, Input, Label, Select, Static, TextArea
 
 from kontiki_tui.backend.services import (
     format_degraded_reason,
@@ -29,12 +29,45 @@ _BASE_HEADERS = {
     "service_name": "Service ID",
     "instance_id": "Short Instance ID",
     "service_version": "Version",
+    "kontiki_version": "Kontiki",
     "status": "Status",
     "host": "Host",
     "pid": "PID",
     "last_heartbeat": "Last Heartbeat",
     "degraded_reason": "Degraded Reason",
 }
+
+_FIELD_OPTIONS = [
+    ("All", "all"),
+    ("Service Name", "service_name"),
+    ("Instance ID", "instance_id"),
+    ("Status", "status"),
+    ("Host", "host"),
+    ("Version", "service_version"),
+    ("Kontiki", "kontiki_version"),
+]
+
+
+def apply_service_field_filter(rows, field, value):
+    """Keep rows matching Field/Value (substring, case-insensitive).
+
+    ``all`` or empty value returns the list unchanged. Instance ID matches
+    the displayed short id and the full UUID in metadata. Status matches
+    the raw registry status, not the emoji.
+    """
+    if not field or field == "all" or not value:
+        return list(rows)
+    expected = value.lower()
+    return [row for row in rows if _service_row_matches_field(row, field, expected)]
+
+
+def _service_row_matches_field(row, field, expected):
+    if field == "instance_id":
+        short = str(row.get("instance_id", "")).lower()
+        metadata = row.get("metadata") or {}
+        full = str(metadata.get("instance_id", "")).lower()
+        return expected in short or expected in full
+    return expected in str(row.get(field, "")).lower()
 
 
 class ServicesTab(Static):
@@ -46,25 +79,52 @@ class ServicesTab(Static):
         super().__init__(id=id_)
         self.services_table = None
         self.config_view = None
+        self.field_input = None
+        self.value_input = None
         self.group_filter_select = None
         self.row_data_map = {}  # Map row_key -> dict of original values
+        self._services_cache = []
         self.headers = dict(_BASE_HEADERS)
 
     def _headers_for_filter(self, group_filter):
         headers = dict(_BASE_HEADERS)
         if group_filter == "all":
-            # Insert group after version when showing the full fleet.
+            # Insert group after the two version columns when showing the full fleet.
             ordered = {}
             for key, label in _BASE_HEADERS.items():
                 ordered[key] = label
-                if key == "service_version":
+                if key == "kontiki_version":
                     ordered["group"] = "Group"
             return ordered
         return headers
 
+    def _add_table_columns(self):
+        for index, (key, label) in enumerate(self.headers.items()):
+            if index == 0:
+                self.services_table.add_column(label)
+                continue
+            header = Text(str(label), justify="center")
+            # Header "Kontiki" is as wide as "1.10.0"; a min width lets both center.
+            if key == "kontiki_version":
+                self.services_table.add_column(header, width=11)
+            else:
+                self.services_table.add_column(header)
+
     def compose(self):
         with Vertical(id="services_split"):
-            with Horizontal(id="services_group_filter_row"):
+            with Horizontal(id="services_filters"):
+                yield Label("Field:")
+                self.field_input = Select(
+                    options=_FIELD_OPTIONS,
+                    value="all",
+                    id="services_field",
+                )
+                yield self.field_input
+                yield Label("Value:")
+                self.value_input = Input(
+                    placeholder="filter value", id="services_value"
+                )
+                yield self.value_input
                 label, select = make_group_filter_select(
                     self.app, "services_group_filter"
                 )
@@ -91,19 +151,48 @@ class ServicesTab(Static):
     def _session_group_filter(self):
         return current_group_filter(self.app)
 
+    def on_mount(self):
+        self._sync_value_input_state()
+
+    def _sync_value_input_state(self):
+        if not self.value_input or not self.field_input:
+            return
+        field = (
+            str(self.field_input.value).strip().lower()
+            if self.field_input.value is not None
+            else "all"
+        )
+        self.value_input.disabled = field == "all"
+
+    def _get_filter_state(self):
+        field = (
+            str(self.field_input.value).strip().lower()
+            if self.field_input and self.field_input.value is not None
+            else "all"
+        )
+        value = self.value_input.value.strip() if self.value_input else ""
+        return field, value
+
+    def on_input_changed(self, event: Input.Changed):
+        if event.input.id == "services_value":
+            self._render_table_from_cache()
+
     @on(Select.Changed)
-    def on_group_filter_select_changed(self, event: Select.Changed) -> None:
-        if GROUP_FILTER_SELECT_CLASS not in event.select.classes:
+    def on_select_changed(self, event: Select.Changed):
+        if GROUP_FILTER_SELECT_CLASS in event.select.classes:
+            if is_group_filter_sync(self.app):
+                return
+            value = event.value
+            if value is None or value is Select.BLANK:
+                return
+            value = str(value)
+            if value == current_group_filter(self.app):
+                return
+            self.post_message(GroupFilterChanged(value))
             return
-        if is_group_filter_sync(self.app):
-            return
-        value = event.value
-        if value is None or value is Select.BLANK:
-            return
-        value = str(value)
-        if value == current_group_filter(self.app):
-            return
-        self.post_message(GroupFilterChanged(value))
+        if event.select.id == "services_field":
+            self._sync_value_input_state()
+            self._render_table_from_cache()
 
     async def action_refresh_services(self) -> None:
         """Refresh the services table from the registry."""
@@ -162,9 +251,7 @@ class ServicesTab(Static):
             await refresh_group_filter_options(self.app, self.group_filter_select)
         self.headers = self._headers_for_filter(group_filter)
 
-        rows = []
-        row_data_list = []  # Temporary list to store row_dicts in order
-
+        cache = []
         for service_name, instances in raw_services.items():
             if not isinstance(instances, dict):
                 continue
@@ -183,53 +270,71 @@ class ServicesTab(Static):
                 pid = metadata.get("pid", "")
                 host = metadata.get("host", "")
                 version = metadata.get("service_version", "")
+                kontiki_version = metadata.get("kontiki_version", "")
 
                 full_instance_id = metadata.get("instance_id", instance_id)
-                row_dict = {
-                    "service_name": metadata.get("service_name", service_name),
-                    "instance_id": short_instance_id(str(full_instance_id or "")),
-                    "status": status,
-                    "last_heartbeat": format_last_heartbeat(
-                        entry.get("last_heartbeat")
-                    ),
-                    "degraded_reason": format_degraded_reason(
-                        entry.get("degraded_reason")
-                    ),
-                    "pid": pid,
-                    "host": host,
-                    "service_version": version,
-                    "group": group,
-                    # Extra fields not displayed in the table but used
-                    # for the config view
-                    "config": config,
-                    "metadata": metadata,
-                }
+                cache.append(
+                    {
+                        "service_name": metadata.get("service_name", service_name),
+                        "instance_id": short_instance_id(str(full_instance_id or "")),
+                        "status": status,
+                        "last_heartbeat": format_last_heartbeat(
+                            entry.get("last_heartbeat")
+                        ),
+                        "degraded_reason": format_degraded_reason(
+                            entry.get("degraded_reason")
+                        ),
+                        "pid": pid,
+                        "host": host,
+                        "service_version": version,
+                        "kontiki_version": kontiki_version,
+                        "group": group,
+                        # Extra fields not displayed in the table but used
+                        # for the config view
+                        "config": config,
+                        "metadata": metadata,
+                    }
+                )
 
-                rows.append(self._row_to_tuple(row_dict))
-                row_data_list.append(row_dict)
+        self._services_cache = cache
+        if not cache:
+            logging.warning("No services to display")
+        else:
+            logging.info("Cached %s service instance(s)", len(cache))
 
         # Rebuild columns so business vs all can show/hide the group column.
         self.services_table.clear(columns=True)
-        for index, label in enumerate(self.headers.values()):
-            if index == 0:
-                self.services_table.add_column(label)
-            else:
-                self.services_table.add_column(Text(str(label), justify="center"))
+        self._add_table_columns()
         logging.info(f"Added {len(self.headers)} columns to services table")
 
-        self.row_data_map = {}  # Reset the mapping
+        self._render_table_from_cache()
+        logging.info("Services table updated successfully")
+
+    def _render_table_from_cache(self):
+        if self.services_table is None:
+            try:
+                self.services_table = self.query_one("#services_table", DataTable)
+            except Exception as e:
+                logging.error(f"Analyses table not available: {e}", exc_info=True)
+                return
+
+        if len(self.services_table.columns) == 0:
+            self._add_table_columns()
+
+        field, value = self._get_filter_state()
+        filtered = apply_service_field_filter(self._services_cache, field, value)
+        rows = [self._row_to_tuple(row_dict) for row_dict in filtered]
+
+        self.services_table.clear()
+        self.row_data_map = {}
         if rows:
-            # add_rows returns the row keys that Textual generated
             row_keys = self.services_table.add_rows(rows)
-            # Map the returned row keys to our row_dicts
-            for row_key, row_dict in zip(row_keys, row_data_list):
+            for row_key, row_dict in zip(row_keys, filtered):
                 self.row_data_map[row_key] = row_dict
-            logging.info(f"Added {len(rows)} rows to services table")
         else:
-            logging.warning("No services to display")
+            self._update_config_view({})
 
         self.services_table.refresh()
-        logging.info("Services table updated successfully")
 
     def _get_row_values(self, row_key) -> dict:
         """Return a copy of the stored row values for a given row key."""

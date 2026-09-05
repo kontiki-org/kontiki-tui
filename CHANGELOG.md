@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.1.0] - 2026-09-05
+
+- Services tab: local `Field` / `Value` filters (service name, instance id,
+  status, host, service version, Kontiki version). Instance id matches the short
+  id and the full UUID. Status matches the registry value (`active` /
+  `degraded` / `down`), not the emoji. No `Limit` (fleet snapshot).
+- Services tab shows instance `kontiki_version` (column **Kontiki**; empty when
+  absent). Header subtitle is the KontikiTUI package version.
+- Require Kontiki `>=1.10.0` (`kontiki_version` on `get_services`).
+
 ## [1.0.0] - 2026-09-04
 
 - Session **Group** Select on Services / Events / Exceptions / Logs: change in one

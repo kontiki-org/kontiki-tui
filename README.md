@@ -17,17 +17,22 @@ It is built with [Textual](https://textual.textualize.io/), a Python TUI framewo
 
 It is “engineering‑tool” oriented:
 
-- quick view of **running services** (status, last heartbeat, degraded reason, host/pid, version),
+- quick view of **running services** (status, last heartbeat, degraded reason, host/pid, service and Kontiki versions),
 - inspect **events** and **exceptions** recorded by the registry,
 - read **logs** without leaving the terminal.
+
+The Header subtitle is the installed KontikiTUI version.
 
 ---
 
 ## Tabs
 
 - **Services**: registered services with status, last heartbeat, degraded reason,
-  host/pid, and version (Kontiki ≥1.9.0). Selecting a row shows the
-  configuration/metadata in JSON.
+  host/pid, service version, and Kontiki runtime version (`kontiki_version` on
+  `get_services`; empty when the instance does not report it; Kontiki ≥1.10.0).
+  Selecting a row shows the configuration/metadata in JSON. Local filters
+  (`Field`/`Value`) match service name, instance id, status, host, service
+  version, or Kontiki version.
 
   Defaults to the **business** registration group via the session **Group** Select
   on each monitoring tab (`all` / `business` / `platform` / …). Changing it in one

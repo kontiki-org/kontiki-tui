@@ -41,15 +41,25 @@ View Tab - Split Layout
     height: 1fr;
 }
 
-#services_group_filter_row {
+#services_filters {
     height: auto;
     margin: 0 0 1 0;
 }
 
-#services_group_filter_row > Label {
+#services_filters > Label {
     margin: 1;
     height: 3;
     content-align: center middle;
+}
+
+#services_field {
+    margin: 1 1 0 0;
+    width: 34%;
+}
+
+#services_value {
+    margin: 1 1 0 0;
+    width: 34%;
 }
 
 .group-filter-select {
