@@ -20,7 +20,7 @@ def current_group_filter(app):
     value = getattr(app, "group_filter", None)
     if isinstance(value, str) and value.strip():
         return value.strip()
-    return "business"
+    return "all"
 
 
 def is_group_filter_sync(app):
@@ -41,13 +41,17 @@ def _select_option_values(select):
     return tuple(value for _, value in select._options)
 
 
+def _options_with_session_value(discovered, value):
+    options = group_filter_select_options(discovered)
+    if value and value != "all" and value not in {opt[1] for opt in options}:
+        options.append((value, value))
+    return options
+
+
 def make_group_filter_select(app, select_id):
     """Build a Group Select bound to the app session filter."""
     value = current_group_filter(app)
-    options = group_filter_select_options([])
-    # Ensure the current value is present even if not in the default set.
-    if value != "all" and value not in {opt[1] for opt in options}:
-        options.append((value, value))
+    options = _options_with_session_value([], value)
     select = Select(
         options=options,
         value=value,
@@ -58,29 +62,28 @@ def make_group_filter_select(app, select_id):
     return Label("Group:"), select
 
 
-async def refresh_group_filter_options(app, select):
-    """Refresh Select options from the registry; keep the session value."""
+def _apply_options_to_select(select, options, value):
+    new_values = tuple(opt[1] for opt in options)
+    with select.prevent(Select.Changed):
+        if _select_option_values(select) != new_values:
+            select.set_options(options)
+        if select.value != value:
+            select.value = value
+
+
+async def refresh_group_filter_options(app):
+    """Load registry groups once and apply the same options to every Select."""
     discovered = []
     services = getattr(app, "services", None)
     if services is not None:
         discovered = await services.list_registration_groups()
-    options = group_filter_select_options(discovered)
     value = current_group_filter(app)
-    if value != "all" and value not in {opt[1] for opt in options}:
-        options.append((value, value))
+    options = _options_with_session_value(discovered, value)
 
-    new_values = tuple(opt[1] for opt in options)
-    same_options = _select_option_values(select) == new_values
-
-    # set_options always resets to the first option ("all") and posts Changed.
-    # Suppress that so a concurrent refresh cannot overwrite the session filter.
     _begin_group_filter_sync(app)
     try:
-        with select.prevent(Select.Changed):
-            if not same_options:
-                select.set_options(options)
-            if select.value != value:
-                select.value = value
+        for select in app.query(f".{GROUP_FILTER_SELECT_CLASS}"):
+            _apply_options_to_select(select, options, value)
     finally:
         _end_group_filter_sync(app)
 
@@ -90,9 +93,12 @@ def sync_group_filter_selects(app, group_filter):
     _begin_group_filter_sync(app)
     try:
         for select in app.query(f".{GROUP_FILTER_SELECT_CLASS}"):
-            if select.value == group_filter:
-                continue
-            with select.prevent(Select.Changed):
-                select.value = group_filter
+            if group_filter not in _select_option_values(select):
+                options = list(select._options)
+                options.append((group_filter, group_filter))
+                _apply_options_to_select(select, options, group_filter)
+            elif select.value != group_filter:
+                with select.prevent(Select.Changed):
+                    select.value = group_filter
     finally:
         _end_group_filter_sync(app)

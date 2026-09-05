@@ -226,7 +226,7 @@ class ExceptionsTab(Static):
             return
 
         if self.group_filter_select is not None:
-            await refresh_group_filter_options(self.app, self.group_filter_select)
+            await refresh_group_filter_options(self.app)
         group_filter = current_group_filter(self.app)
 
         try:

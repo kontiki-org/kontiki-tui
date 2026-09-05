@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.1] - 2026-09-05
+
+- Fix crash (`InvalidSelectValueError`) when picking a Group that other tabs
+  had not loaded yet.
+- Group Select options are `all` plus groups discovered in the registry (no
+  hardcoded `business` / `platform`). The same list is loaded once at startup
+  on every tab. Default at startup is `all`.
+
 ## [1.1.0] - 2026-09-05
 
 - Services tab: local `Field` / `Value` filters (service name, instance id,

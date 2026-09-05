@@ -248,7 +248,7 @@ class ServicesTab(Static):
 
         group_filter = self._session_group_filter()
         if self.group_filter_select is not None:
-            await refresh_group_filter_options(self.app, self.group_filter_select)
+            await refresh_group_filter_options(self.app)
         self.headers = self._headers_for_filter(group_filter)
 
         cache = []
