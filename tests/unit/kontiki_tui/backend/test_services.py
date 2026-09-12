@@ -298,10 +298,21 @@ def test_get_exceptions_group_filter_all(services):
 def test_get_log_files_for_group_all(services, tmp_path):
     (tmp_path / "OrderSvc-aabbccddeeff.log").write_text("x")
     (tmp_path / "PlatformSvc-112233445566.log").write_text("x")
+    (tmp_path / "OldSvc-ffffffffffff.log").write_text("x")
     (tmp_path / "ServiceRegistry-8403559c88ae.log").write_text("x")
+    services.services.get_services = AsyncMock(
+        return_value=_make_registry(
+            {
+                ("OrderSvc", "aabbccddeeff-0000-0000-0000-000000000000"): "business",
+                ("PlatformSvc", "11223344-5566-0000-0000-000000000000"): "platform",
+            }
+        )
+    )
     out = asyncio.run(services.get_log_files_for_group(str(tmp_path), "all"))
-    assert len(out) == 2
-    assert all("ServiceRegistry" not in path for path in out)
+    assert out == [
+        str(tmp_path / "OrderSvc-aabbccddeeff.log"),
+        str(tmp_path / "PlatformSvc-112233445566.log"),
+    ]
 
 
 def test_get_log_files_for_group_business(services, tmp_path):
@@ -322,12 +333,30 @@ def test_get_log_files_for_group_business(services, tmp_path):
     assert "OrderSvc" in out[0]
 
 
-def test_get_log_files_for_group_non_kontiki_file_always_included(services, tmp_path):
-    """Files not matching the Kontiki naming pattern are always included."""
+def test_get_log_files_omits_non_kontiki_file(services, tmp_path):
     (tmp_path / "some_legacy.log").write_text("x")
-    services.services.get_services = AsyncMock(return_value={})
-    out = asyncio.run(services.get_log_files_for_group(str(tmp_path), "business"))
-    assert len(out) == 1
+    (tmp_path / "OrderSvc-aabbccddeeff.log").write_text("x")
+    services.services.get_services = AsyncMock(
+        return_value=_make_registry(
+            {
+                ("OrderSvc", "aabbccddeeff-0000-0000-0000-000000000000"): "business",
+            }
+        )
+    )
+    out = asyncio.run(services.get_log_files_for_group(str(tmp_path), "all"))
+    assert out == [str(tmp_path / "OrderSvc-aabbccddeeff.log")]
+
+
+def test_get_log_files_skips_missing_file_for_registered_instance(services, tmp_path):
+    services.services.get_services = AsyncMock(
+        return_value=_make_registry(
+            {
+                ("OrderSvc", "aabbccddeeff-0000-0000-0000-000000000000"): "business",
+            }
+        )
+    )
+    out = asyncio.run(services.get_log_files_for_group(str(tmp_path), "all"))
+    assert out == []
 
 
 def test_get_log_files_for_group_empty_dir(services, tmp_path):

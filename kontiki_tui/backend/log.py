@@ -41,7 +41,7 @@ def _resolve_candidate_files(
 ) -> list[str]:
     """Return the list of log files to read.
 
-    When ``log_files`` is provided (pre-filtered by group), use it directly.
+    When ``log_files`` is provided (registry instances for the group), use it.
     Otherwise fall back to the entire ``log_folder``.
     """
     if log_files is not None:

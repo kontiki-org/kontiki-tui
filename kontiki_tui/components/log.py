@@ -61,7 +61,7 @@ class LogTab(Static):
         self.group_filter_select = select
         yield Vertical(
             Horizontal(
-                Input(placeholder="Pattern (Enter to search)", id="pattern_input"),
+                Input(placeholder="Pattern to search", id="pattern_input"),
                 Label("exclude noise:", id="noise_label"),
                 Switch(value=False, id="noise_switch"),
                 label,
@@ -72,7 +72,7 @@ class LogTab(Static):
             id="log_vertical",
         )
 
-    def on_input_submitted(self, event: Input.Submitted) -> None:
+    def on_input_changed(self, event: Input.Changed) -> None:
         exclude_noise = self.query_one("#noise_switch", Switch).value
         self.post_message(self.UpdateLog(event.value.strip(), exclude_noise))
 
