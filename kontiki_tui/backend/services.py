@@ -186,15 +186,12 @@ class Services:
     async def get_log_files_for_group(
         self, log_directory: str, group_filter: str
     ) -> list[str]:
-        """Return log file paths under ``log_directory`` matching ``group_filter``.
+        """Return log files for registry instances matching ``group_filter``.
 
         Requires Kontiki >=1.8.1 naming: ``{service_name}-{12hex}.log``.
-        Files whose stem cannot be matched to a registry instance fall back to
-        ``business`` (they are included in ``business`` and ``all`` views).
-        Files that do not match the Kontiki naming pattern are always included.
-
-        ``ServiceRegistry-*.log`` is always omitted (registry process does not
-        self-register; its logs are mostly TUI observer RPC noise).
+        The set is the live registry (any status), then the session group.
+        Leftover files from deregistered instances, non-Kontiki names, and
+        ``ServiceRegistry-*.log`` (not in the registry) are omitted.
         """
         import os
         import re
@@ -202,40 +199,17 @@ class Services:
         if not log_directory or not os.path.isdir(log_directory):
             return []
 
-        # Pattern: anything ending with -{12 lowercase hex}.log
-        kontiki_pattern = re.compile(r"^(.+)-([0-9a-f]{12})\.log$")
-        instance_group_map = (
-            {} if group_filter == "all" else await self._build_instance_group_map()
-        )
-
+        instance_group_map = await self._build_instance_group_map()
         result = []
-        for name in sorted(os.listdir(log_directory)):
-            full_path = os.path.join(log_directory, name)
-            if not os.path.isfile(full_path):
+        for (svc, inst_id), group in instance_group_map.items():
+            if not matches_group_filter(group, group_filter):
                 continue
-            m = kontiki_pattern.match(name)
-            if not m:
-                # Non-Kontiki file: always include (no group info available).
+            sanitized = re.sub(r"[^A-Za-z0-9._-]", "_", svc)
+            short_id = inst_id.replace("-", "")[:12]
+            full_path = os.path.join(log_directory, f"{sanitized}-{short_id}.log")
+            if os.path.isfile(full_path):
                 result.append(full_path)
-                continue
-            service_name, short_id = m.group(1), m.group(2)
-            if implied_platform_group(service_name):
-                # ServiceRegistry logs: never shown in the TUI Logs tab.
-                continue
-            if group_filter == "all":
-                result.append(full_path)
-                continue
-            group = "business"
-            for (svc, inst_id), grp in instance_group_map.items():
-                sanitized = re.sub(r"[^A-Za-z0-9._-]", "_", svc)
-                if sanitized == service_name and inst_id.replace("-", "").startswith(
-                    short_id
-                ):
-                    group = grp
-                    break
-            if matches_group_filter(group, group_filter):
-                result.append(full_path)
-        return result
+        return sorted(result)
 
 
 def format_last_heartbeat(last_heartbeat):

@@ -54,12 +54,11 @@ The Header subtitle is the installed KontikiTUI version.
 
   ![Exceptions tab](assets/exceptions.png)
 
-- **Logs**: reads configured log files from `logs.directory` and displays them in the UI.
-  Uses `lnav` when available; otherwise it falls back to a Python reader.
-  When services use Kontiki ≥1.8.1 (`logging.directory` in their config), log files
-  are named `{service_name}-{short_instance_id}.log` and filtered by the session
-  Group Select. `ServiceRegistry-*.log` is never included (observer / registry
-  process noise). Files that do not follow Kontiki naming are always shown.
+- **Logs**: reads log files of instances currently in the registry, from
+  `logs.directory`. Uses `lnav` when available; otherwise a Python reader.
+  Files follow Kontiki ≥1.8.1 naming `{service_name}-{short_instance_id}.log`
+  and the session Group Select. Leftover files from deregistered instances,
+  `ServiceRegistry-*.log`, and non-Kontiki filenames are not opened.
 
   ![Logs tab](assets/logs.png)
 
