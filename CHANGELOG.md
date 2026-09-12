@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.1.2] - 2026-09-12
+
+- Logs tab: pattern search runs on Enter, not on each keystroke.
+
 ## [1.1.1] - 2026-09-05
 
 - Fix crash (`InvalidSelectValueError`) when picking a Group that other tabs
