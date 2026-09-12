@@ -5,6 +5,12 @@
 - Logs tab opens only log files of instances currently in the registry (same
   Group Select as the other tabs). Leftover files from deregistered instances
   and non-Kontiki filenames are omitted.
+- Rollback of 1.1.2: Logs pattern search is live again (each keystroke), not
+  Enter.
+
+## [1.1.2] - 2026-09-12
+
+- Logs tab: pattern search runs on Enter, not on each keystroke.
 
 ## [1.1.1] - 2026-09-05
 
