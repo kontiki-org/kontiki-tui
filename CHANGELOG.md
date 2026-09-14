@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.2.1] - 2026-09-14
+
+- Depend on `boomerang-contracts` so pickled `NormalizedAlert` payloads from
+  `list_open_alerts` can be decoded (Incidents tab).
+
 ## [1.2.0] - 2026-09-14
 
 - Incidents tab: open `NormalizedAlert` snapshots from `kontiki-monitor` and
