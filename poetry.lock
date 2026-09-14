@@ -431,6 +431,21 @@ files = [
 toml = ["tomli ; python_full_version <= \"3.11.0a6\""]
 
 [[package]]
+name = "croniter"
+version = "6.2.4"
+description = "croniter provides iteration for datetime object with cron like format"
+optional = false
+python-versions = ">=3.9"
+groups = ["main"]
+files = [
+    {file = "croniter-6.2.4-py3-none-any.whl", hash = "sha256:8ef3d544107a5c05a150a2d78f8bf5a8eb9c5c4d93405a736b824109574e3f4d"},
+    {file = "croniter-6.2.4.tar.gz", hash = "sha256:fc124f751b1b04805c2a04b061898b436b45ab2320b045e1e052ea895de65189"},
+]
+
+[package.dependencies]
+python-dateutil = "*"
+
+[[package]]
 name = "flake8"
 version = "7.3.0"
 description = "the modular source code checker: pep8 pyflakes and co"
@@ -631,19 +646,20 @@ colors = ["colorama (>=0.4.6)"]
 
 [[package]]
 name = "kontiki"
-version = "1.10.0"
+version = "1.13.0"
 description = "Microservices framework in Python."
 optional = false
 python-versions = "<4.0,>=3.11"
 groups = ["main"]
 files = [
-    {file = "kontiki-1.10.0-py3-none-any.whl", hash = "sha256:dc6d7df24aa2daf34ab522767b7a892fbae02fa4684d60b8669e422e3af32d05"},
-    {file = "kontiki-1.10.0.tar.gz", hash = "sha256:494bcd5592d559506ecdeff446977b01b23941b4735ed4a0e214a1ea2202761e"},
+    {file = "kontiki-1.13.0-py3-none-any.whl", hash = "sha256:fa8d646aa33f5386acd5376cf2b51ca74d33cdeeade29491660a4677852d6dd2"},
+    {file = "kontiki-1.13.0.tar.gz", hash = "sha256:0b3b7b09fd03c984ca2ece0856544c251c231b3708c7627da3ff60c3c871e34f"},
 ]
 
 [package.dependencies]
 aio-pika = ">=9.0.0,<10.0.0"
 aiohttp = ">=3.11.0,<4.0.0"
+croniter = ">=6.0.0,<7.0.0"
 pydantic = ">=2.0.0,<3.0.0"
 PyYAML = ">=6.0,<7.0"
 
@@ -1341,6 +1357,21 @@ pytest = ">=4.6"
 testing = ["fields", "hunter", "process-tests", "pytest-xdist", "six", "virtualenv"]
 
 [[package]]
+name = "python-dateutil"
+version = "2.9.0.post0"
+description = "Extensions to the standard Python datetime module"
+optional = false
+python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,>=2.7"
+groups = ["main"]
+files = [
+    {file = "python-dateutil-2.9.0.post0.tar.gz", hash = "sha256:37dd54208da7e1cd875388217d5e00ebd4179249f90fb72437e91a35459a0ad3"},
+    {file = "python_dateutil-2.9.0.post0-py2.py3-none-any.whl", hash = "sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427"},
+]
+
+[package.dependencies]
+six = ">=1.5"
+
+[[package]]
 name = "pyyaml"
 version = "6.0.3"
 description = "YAML parser and emitter for Python"
@@ -1441,6 +1472,18 @@ pygments = ">=2.13.0,<3.0.0"
 
 [package.extras]
 jupyter = ["ipywidgets (>=7.5.1,<9)"]
+
+[[package]]
+name = "six"
+version = "1.17.0"
+description = "Python 2 and 3 compatibility utilities"
+optional = false
+python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,>=2.7"
+groups = ["main"]
+files = [
+    {file = "six-1.17.0-py2.py3-none-any.whl", hash = "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274"},
+    {file = "six-1.17.0.tar.gz", hash = "sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81"},
+]
 
 [[package]]
 name = "textual"
@@ -1614,4 +1657,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<4.0"
-content-hash = "0beb039cbce411d060dc260ca10bac7f0ae8f5437c697b7243fede7529368391"
+content-hash = "a8db82c424b387eb46d4c6c8df4b88ff319fd0ce4d27a144672c8cea7fcc6f58"

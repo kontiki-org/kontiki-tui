@@ -1,7 +1,12 @@
 import logging
 from datetime import datetime, timezone
 
+from kontiki.messaging import RpcProxy
+from kontiki.messaging.flow import short_instance_id
 from kontiki.registry import ServiceRegistryProxy
+
+OPS_OPEN_ALERT_SOURCES = ("kontiki-monitor", "host-check-service")
+MONITOR_SERVICE_NAME = "kontiki-monitor"
 
 
 def normalize_registration_group(group):
@@ -49,7 +54,9 @@ def group_filter_select_options(discovered_groups):
 
 class Services:
     def __init__(self, messenger):
+        self.messenger = messenger
         self.services = ServiceRegistryProxy(messenger)
+        self.monitor = RpcProxy(messenger, service_name=MONITOR_SERVICE_NAME)
 
     async def get_services(self):
         return await self.services.get_services()
@@ -211,11 +218,176 @@ class Services:
                 result.append(full_path)
         return sorted(result)
 
+    async def fetch_open_alerts(self):
+        """Load open NormalizedAlerts from ops producers.
+
+        Returns ``(alerts, registry_failed, instance_errors)``.
+        ``instance_errors`` is a list of ``(service_name, instance_id)``.
+        ``list_instances`` ``[]`` skips that name. A registry RPC failure
+        sets ``registry_failed``; alerts already fetched are kept.
+        """
+        alerts = []
+        registry_failed = False
+        instance_errors = []
+        for source in OPS_OPEN_ALERT_SOURCES:
+            try:
+                ids = await self.services.list_instances(source)
+            except Exception as exc:
+                logging.getLogger("kontiki_tui").warning(
+                    "list_instances failed for %s: %s", source, exc
+                )
+                registry_failed = True
+                break
+            for instance_id in ids or []:
+                try:
+                    proxy = RpcProxy(
+                        self.messenger,
+                        service_name=source,
+                        instance_id=instance_id,
+                    )
+                    raw = await proxy.list_open_alerts()
+                except Exception as exc:
+                    logging.getLogger("kontiki_tui").warning(
+                        "list_open_alerts failed for %s %s: %s",
+                        source,
+                        instance_id,
+                        exc,
+                    )
+                    instance_errors.append((source, instance_id))
+                    continue
+                for item in raw or []:
+                    alert = alert_to_dict(item)
+                    alert["_producer_service"] = source
+                    alert["_producer_instance_id"] = instance_id
+                    alerts.append(alert)
+        alerts.sort(key=lambda alert: str(alert.get("alert_id") or ""))
+        return alerts, registry_failed, instance_errors
+
+    async def list_monitor_instances(self):
+        return await self.services.list_instances(MONITOR_SERVICE_NAME)
+
+    async def list_instances(self, service_name):
+        return await self.services.list_instances(service_name)
+
+    async def instance_groups(self):
+        return await self._build_instance_group_map()
+
+    async def list_silences(self):
+        return await self.monitor.list_silences()
+
+    async def add_silence(self, service_name):
+        return await self.monitor.add_silence(service_name=service_name)
+
+    async def clear_silence(self, service_name):
+        return await self.monitor.clear_silence(service_name=service_name)
+
+
+def alert_to_dict(alert):
+    """Normalize a list_open_alerts item to a plain dict."""
+    if isinstance(alert, dict):
+        return dict(alert)
+    return alert.model_dump(mode="json")
+
+
+def display_alert_dict(alert):
+    """NormalizedAlert fields only (drop TUI producer keys)."""
+    return {key: value for key, value in alert.items() if not str(key).startswith("_")}
+
+
+def group_for_open_alert(alert, instance_group_map):
+    """Registry group for an open alert, or None (disk, producer gone).
+
+    ``attributes.service_name`` → group of any live instance of that name,
+    else ``business``. Disk alerts (no service_name) → group of the
+    producer instance; missing producer → None (Group ``all`` only).
+    """
+    attributes = alert.get("attributes") or {}
+    service_name = attributes.get("service_name")
+    if service_name:
+        for (svc, _inst), group in instance_group_map.items():
+            if svc == service_name:
+                return group
+        return "business"
+    producer = alert.get("_producer_service")
+    producer_id = alert.get("_producer_instance_id")
+    return instance_group_map.get((producer, producer_id))
+
+
+def open_alert_matches_group(alert, group_filter, instance_group_map):
+    if group_filter == "all":
+        return True
+    group = group_for_open_alert(alert, instance_group_map)
+    if group is None:
+        return False
+    return matches_group_filter(group, group_filter)
+
+
+def apply_incident_field_filter(rows, field, value):
+    if not field or field == "all" or not value:
+        return list(rows)
+    expected = value.lower()
+    return [row for row in rows if expected in _incident_field(row, field).lower()]
+
+
+def _incident_field(row, field):
+    if field in ("service_name", "host"):
+        attributes = row.get("attributes") or {}
+        return str(attributes.get(field, "") or "")
+    return str(row.get(field, "") or "")
+
+
+def silenced_service_names(silences):
+    """Set of service_name values from list_silences."""
+    names = set()
+    for item in silences or []:
+        name = item.get("service_name") if isinstance(item, dict) else None
+        if name:
+            names.add(name)
+    return names
+
+
+def live_service_names_in_group(raw_services, group_filter):
+    """Distinct live (active/degraded) service names in the session group."""
+    names = []
+    seen = set()
+    for service_name, instances in (raw_services or {}).items():
+        if not isinstance(instances, dict):
+            continue
+        for _instance_id, entry in instances.items():
+            if not isinstance(entry, dict):
+                continue
+            status = str(entry.get("status") or "").lower()
+            if status not in ("active", "degraded"):
+                continue
+            metadata = entry.get("metadata") or {}
+            group = normalize_registration_group(metadata.get("group"))
+            if not matches_group_filter(group, group_filter):
+                continue
+            if service_name in seen:
+                continue
+            seen.add(service_name)
+            names.append(service_name)
+    return sorted(names)
+
+
+def format_instance_unreachable(service_name, instance_id):
+    return "%s %s unreachable" % (
+        service_name,
+        short_instance_id(str(instance_id or "")),
+    )
+
 
 def format_last_heartbeat(last_heartbeat):
     """Return ``last_heartbeat`` as ``YYYY-MM-DD HH:MM:SS`` UTC, or empty."""
     if last_heartbeat is None:
         return ""
+    if isinstance(last_heartbeat, datetime):
+        parsed = last_heartbeat
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        else:
+            parsed = parsed.astimezone(timezone.utc)
+        return parsed.replace(microsecond=0).strftime("%Y-%m-%d %H:%M:%S")
     if not isinstance(last_heartbeat, str):
         return str(last_heartbeat)
     text = last_heartbeat.strip()

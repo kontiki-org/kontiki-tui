@@ -1,6 +1,7 @@
 import json
 import logging
 
+from kontiki.messaging import RpcClientError, RpcTimeoutError
 from kontiki.messaging.flow import short_instance_id
 from rich.text import Text
 from textual import on
@@ -11,8 +12,10 @@ from textual.widgets import DataTable, Input, Label, Select, Static, TextArea
 from kontiki_tui.backend.services import (
     format_degraded_reason,
     format_last_heartbeat,
+    live_service_names_in_group,
     matches_group_filter,
     normalize_registration_group,
+    silenced_service_names,
 )
 from kontiki_tui.components.group_filter import (
     GROUP_FILTER_SELECT_CLASS,
@@ -22,6 +25,7 @@ from kontiki_tui.components.group_filter import (
     make_group_filter_select,
     refresh_group_filter_options,
 )
+from kontiki_tui.components.prompt import ConfirmPrompt
 
 # -----------------------------------------------------------------------------
 
@@ -35,6 +39,7 @@ _BASE_HEADERS = {
     "pid": "PID",
     "last_heartbeat": "Last Heartbeat",
     "degraded_reason": "Degraded Reason",
+    "muted": "Mute",
 }
 
 _FIELD_OPTIONS = [
@@ -73,6 +78,8 @@ def _service_row_matches_field(row, field, expected):
 class ServicesTab(Static):
     BINDINGS = [
         Binding("r", "refresh_services", description="Refresh services table"),
+        Binding("s", "toggle_mute", description="Mute service"),
+        Binding("S", "toggle_mute_group", description="Mute all (group)"),
     ]
 
     def __init__(self, id_="services"):
@@ -84,6 +91,8 @@ class ServicesTab(Static):
         self.group_filter_select = None
         self.row_data_map = {}  # Map row_key -> dict of original values
         self._services_cache = []
+        self._raw_services = {}
+        self._silenced = set()
         self.headers = dict(_BASE_HEADERS)
 
     def _headers_for_filter(self, group_filter):
@@ -99,8 +108,8 @@ class ServicesTab(Static):
         return headers
 
     def _add_table_columns(self):
-        for index, (key, label) in enumerate(self.headers.items()):
-            if index == 0:
+        for key, label in self.headers.items():
+            if key == "service_name":
                 self.services_table.add_column(label)
                 continue
             header = Text(str(label), justify="center")
@@ -215,10 +224,11 @@ class ServicesTab(Static):
         """Convert an internal row dict to a tuple in the correct column order."""
         display_dict = row_dict.copy()
         display_dict["status"] = self._status_to_emoji(row_dict.get("status", ""))
+        display_dict["muted"] = "🔇" if row_dict.get("muted") else ""
         cells = []
-        for index, key in enumerate(self.headers.keys()):
+        for key in self.headers.keys():
             value = str(display_dict.get(key, "") or "")
-            if index == 0:
+            if key == "service_name":
                 cells.append(value)
             else:
                 cells.append(Text(value, justify="center"))
@@ -245,6 +255,9 @@ class ServicesTab(Static):
         except Exception as e:
             logging.error(f"Error getting services from backend: {e}", exc_info=True)
             return
+
+        self._raw_services = raw_services if isinstance(raw_services, dict) else {}
+        self._silenced = await self._load_silenced_names(services_backend)
 
         group_filter = self._session_group_filter()
         if self.group_filter_select is not None:
@@ -273,9 +286,11 @@ class ServicesTab(Static):
                 kontiki_version = metadata.get("kontiki_version", "")
 
                 full_instance_id = metadata.get("instance_id", instance_id)
+                name = metadata.get("service_name", service_name)
                 cache.append(
                     {
-                        "service_name": metadata.get("service_name", service_name),
+                        "muted": name in self._silenced,
+                        "service_name": name,
                         "instance_id": short_instance_id(str(full_instance_id or "")),
                         "status": status,
                         "last_heartbeat": format_last_heartbeat(
@@ -392,3 +407,141 @@ class ServicesTab(Static):
             logging.warning(
                 f"cursor_row {cursor_row} out of range (max: {len(row_keys) - 1})"
             )
+
+    def _selected_row(self):
+        if self.services_table is None:
+            return None
+        cursor_row = self.services_table.cursor_row
+        if cursor_row is None:
+            return None
+        row_keys = list(self.services_table.rows.keys())
+        if cursor_row < 0 or cursor_row >= len(row_keys):
+            return None
+        return self.row_data_map.get(row_keys[cursor_row])
+
+    async def _load_silenced_names(self, backend):
+        try:
+            ids = await backend.list_monitor_instances()
+        except Exception as exc:
+            logging.warning("list_instances kontiki-monitor failed: %s", exc)
+            return set()
+        if not ids:
+            return set()
+        try:
+            raw = await backend.list_silences()
+        except Exception as exc:
+            logging.warning("list_silences failed: %s", exc)
+            return set()
+        return silenced_service_names(raw)
+
+    def _show_confirm(self, text, action, payload):
+        prompt_area = self.app.query_one("#prompt-area")
+        prompt_area.remove_children()
+        prompt_area.mount(ConfirmPrompt(text, action, payload))
+
+    async def _monitor_ready_for_mute(self, backend):
+        try:
+            ids = await backend.list_monitor_instances()
+        except Exception:
+            self.app._show_error_prompt("ServiceRegistry unreachable")
+            return False
+        if not ids:
+            self.app._show_error_prompt("kontiki-monitor is not registered")
+            return False
+        return True
+
+    async def _apply_silence(self, backend, service_name, mute):
+        try:
+            if mute:
+                await backend.add_silence(service_name)
+            else:
+                await backend.clear_silence(service_name)
+        except RpcTimeoutError:
+            self.app._show_error_prompt("kontiki-monitor unreachable")
+            return False
+        except RpcClientError as exc:
+            self.app._show_error_prompt(exc.message)
+            return False
+        except Exception as exc:
+            logging.error("silence RPC failed: %s", exc, exc_info=True)
+            self.app._show_error_prompt("kontiki-monitor unreachable")
+            return False
+        return True
+
+    async def _reload_mute_column(self, backend):
+        self._silenced = await self._load_silenced_names(backend)
+        for row in self._services_cache:
+            row["muted"] = row.get("service_name") in self._silenced
+        self._render_table_from_cache()
+
+    async def action_toggle_mute(self):
+        row = self._selected_row()
+        if not row:
+            self.app._show_error_prompt("No service selected")
+            return
+        backend = self.app.services
+        if backend is None:
+            return
+        if not await self._monitor_ready_for_mute(backend):
+            return
+        service_name = row.get("service_name")
+        mute = service_name not in self._silenced
+        try:
+            live_ids = await backend.list_instances(service_name)
+        except Exception:
+            self.app._show_error_prompt("ServiceRegistry unreachable")
+            return
+        payload = {"service_name": service_name, "mute": mute}
+        if len(live_ids or []) > 1:
+            verb = "Mute" if mute else "Unmute"
+            self._show_confirm(
+                "%s %s (%s instances)? [y/n]" % (verb, service_name, len(live_ids)),
+                "mute_service",
+                payload,
+            )
+            return
+        if await self._apply_silence(backend, service_name, mute):
+            await self._reload_mute_column(backend)
+
+    async def action_toggle_mute_group(self):
+        backend = self.app.services
+        if backend is None:
+            return
+        if not await self._monitor_ready_for_mute(backend):
+            return
+        group_filter = self._session_group_filter()
+        names = live_service_names_in_group(self._raw_services, group_filter)
+        if not names:
+            self.app._show_error_prompt("No services in this group")
+            return
+        all_muted = all(name in self._silenced for name in names)
+        mute = not all_muted
+        verb = "Mute" if mute else "Unmute"
+        group_label = group_filter
+        self._show_confirm(
+            "%s %s services (group %s)? [y/n]" % (verb, len(names), group_label),
+            "mute_group",
+            {"names": names, "mute": mute},
+        )
+
+    @on(ConfirmPrompt.Result)
+    async def on_confirm_prompt_result(self, event):
+        if not event.confirmed:
+            return
+        backend = self.app.services
+        if backend is None:
+            return
+        if event.action == "mute_service":
+            service_name = event.payload.get("service_name")
+            mute = event.payload.get("mute")
+            if await self._apply_silence(backend, service_name, mute):
+                await self._reload_mute_column(backend)
+            return
+        if event.action == "mute_group":
+            names = event.payload.get("names") or []
+            mute = event.payload.get("mute")
+            for name in names:
+                if not await self._apply_silence(backend, name, mute):
+                    await self._reload_mute_column(backend)
+                    return
+            await self._reload_mute_column(backend)

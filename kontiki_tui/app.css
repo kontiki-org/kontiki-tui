@@ -73,6 +73,44 @@ View Tab - Split Layout
     width: 100%;
 }
 
+#incidents_split {
+    layout: vertical;
+    padding: 1;
+    height: 1fr;
+}
+
+#incidents_filters {
+    height: auto;
+    margin: 0 0 1 0;
+}
+
+#incidents_filters > Label {
+    margin: 1;
+    height: 3;
+    content-align: center middle;
+}
+
+#incidents_field {
+    margin: 1 1 0 0;
+    width: 34%;
+}
+
+#incidents_value {
+    margin: 1 1 0 0;
+    width: 34%;
+}
+
+#incidents_table {
+    height: 1fr;
+    width: 100%;
+}
+
+#incident_detail {
+    height: 1fr;
+    width: 100%;
+    border: round darkgrey;
+}
+
 #service_config {
     height: 1fr;
     width: 100%;
