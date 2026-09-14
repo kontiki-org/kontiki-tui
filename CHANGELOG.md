@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0] - 2026-09-14
+
+- Incidents tab: open `NormalizedAlert` snapshots from `kontiki-monitor` and
+  `host-check-service` (`list_instances` then `list_open_alerts` per instance).
+- Services tab: Mute column and bindings `s` / `S` (monitor silences).
+- Require Kontiki `>=1.13.0`.
+
 ## [1.1.3] - 2026-09-12
 
 - Logs tab opens only log files of instances currently in the registry (same

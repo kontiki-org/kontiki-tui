@@ -34,12 +34,22 @@ The Header subtitle is the installed KontikiTUI version.
   (`Field`/`Value`) match service name, instance id, status, host, service
   version, or Kontiki version.
 
+  Mute column (`🔇`) reflects kontiki-monitor silences (`service_name`). `s`
+  toggles the selected service; `S` mutes or unmutes all live names in the
+  current Group (always confirmed).
+
   Defaults to **all** via the session **Group** Select on each monitoring tab.
   Options are `all` plus groups discovered in the live registry. Changing it in
   one tab updates all tabs. Missing/blank Registry `group` counts as business.
   Instance column shows the Kontiki short id (12 hex), not the full UUID.
 
   ![Services tab](assets/services.png)
+
+- **Incidents**: open ops alerts (`list_open_alerts`) from `kontiki-monitor`
+  (fleet / exception fingerprints) and every live `host-check-service` instance
+  (disk). Session Group Select and local `Field`/`Value` filters. Selecting a
+  row shows the full alert JSON. Mute does not cover host-check disk alerts.
+  Requires Kontiki ≥1.13.0.
 
 - **Events**: events tracked by the registry, with local filters (`Field`/`Value`/`Limit`).
   Domain publishes and RPC calls are shown (`rpc:<remote_method>` when there is no

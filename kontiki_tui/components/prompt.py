@@ -15,46 +15,42 @@ class ConfirmPrompt(Static):
     ]
 
     class Result(Message):
-        def __init__(self, confirmed: bool, row_key: int):
+        def __init__(self, confirmed, action, payload=None):
             self.confirmed = confirmed
-            self.row_key = row_key
+            self.action = action
+            self.payload = payload or {}
             super().__init__()
 
-    def __init__(self, text: str, row_key: int):
+    def __init__(self, text, action, payload=None):
         super().__init__(text, markup=False)
-        self._row_key = row_key
+        self._action = action
+        self._payload = payload or {}
 
-    def on_mount(self) -> None:
+    def on_mount(self):
         self.focus()
 
-    def action_confirm(self) -> None:
+    def action_confirm(self):
         logging.getLogger("kontiki_tui").info(
-            f"ConfirmPrompt: confirm pressed for row_key={self._row_key}"
+            "ConfirmPrompt: confirm action=%s", self._action
         )
-        # Envoyer le message directement au ViewTab (#view)
-        try:
-            view = self.app.query_one("#view")
-            view.post_message(self.Result(confirmed=True, row_key=self._row_key))
-        except Exception as e:
-            logging.getLogger("kontiki_tui").error(
-                f"ConfirmPrompt: unable to post confirm result to #view: {e}",
-                exc_info=True,
-            )
+        self._post_result(True)
         self.remove()
 
-    def action_cancel(self) -> None:
+    def action_cancel(self):
         logging.getLogger("kontiki_tui").info(
-            f"ConfirmPrompt: cancel pressed for row_key={self._row_key}"
+            "ConfirmPrompt: cancel action=%s", self._action
         )
-        try:
-            view = self.app.query_one("#view")
-            view.post_message(self.Result(confirmed=False, row_key=self._row_key))
-        except Exception as e:
-            logging.getLogger("kontiki_tui").error(
-                f"ConfirmPrompt: unable to post cancel result to #view: {e}",
-                exc_info=True,
-            )
+        self._post_result(False)
         self.remove()
+
+    def _post_result(self, confirmed):
+        try:
+            tab = self.app.query_one("#services")
+            tab.post_message(self.Result(confirmed, self._action, self._payload))
+        except Exception as exc:
+            logging.getLogger("kontiki_tui").error(
+                "ConfirmPrompt: unable to post result: %s", exc, exc_info=True
+            )
 
 
 class Prompt(Static):

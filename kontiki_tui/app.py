@@ -20,6 +20,7 @@ from kontiki_tui.components.group_filter import (
     refresh_group_filter_options,
     sync_group_filter_selects,
 )
+from kontiki_tui.components.incidents import IncidentsTab
 from kontiki_tui.components.log import LogTab, render_log_output
 from kontiki_tui.components.prompt import ErrorPrompt, InfoPrompt, Prompt
 from kontiki_tui.components.services import ServicesTab
@@ -275,6 +276,11 @@ class KontikiTuiApp(App):
             self.run_worker(services_tab.update_table())
             if services_tab.services_table is not None:
                 services_tab.services_table.focus()
+        elif tab_label == "Incidents":
+            incidents_tab = self.query_one("#incidents", IncidentsTab)
+            self.run_worker(incidents_tab.update_table())
+            if incidents_tab.incidents_table is not None:
+                incidents_tab.incidents_table.focus()
         elif tab_label == "Logs":
             log_tab = self.query_one("#log", LogTab)
             self.run_worker(self._refresh_logs_tab(log_tab))
@@ -305,6 +311,8 @@ class KontikiTuiApp(App):
             return
         if pane.query(ServicesTab):
             self.run_worker(self.query_one("#services", ServicesTab).update_table())
+        elif pane.query(IncidentsTab):
+            self.run_worker(self.query_one("#incidents", IncidentsTab).update_table())
         elif pane.query(EventsTab):
             self.run_worker(self.query_one("#events", EventsTab).update_table())
         elif pane.query(ExceptionsTab):
