@@ -49,7 +49,7 @@ The Header subtitle is the installed KontikiTUI version.
   (fleet / exception fingerprints) and every live `host-check-service` instance
   (disk). Session Group Select and local `Field`/`Value` filters. Selecting a
   row shows the full alert JSON. Mute does not cover host-check disk alerts.
-  Requires Kontiki ≥1.13.0.
+  Requires Kontiki ≥1.13.0 and `boomerang-contracts` (pickled `NormalizedAlert`).
 
 - **Events**: events tracked by the registry, with local filters (`Field`/`Value`/`Limit`).
   Domain publishes and RPC calls are shown (`rpc:<remote_method>` when there is no
