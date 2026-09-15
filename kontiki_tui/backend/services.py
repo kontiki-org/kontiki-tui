@@ -275,6 +275,29 @@ class Services:
     async def list_silences(self):
         return await self.monitor.list_silences()
 
+    async def fetch_silence_rows(self):
+        """Load silence rows joined with the registry.
+
+        Returns ``(rows, error)``. ``error`` is ``None``, ``"registry"``,
+        ``"monitor_missing"``, or ``"monitor_unreachable"``.
+        """
+        try:
+            ids = await self.services.list_instances(MONITOR_SERVICE_NAME)
+            raw_services = await self.services.get_services()
+        except Exception as exc:
+            logging.getLogger("kontiki_tui").warning(
+                "registry RPC failed while listing silences: %s", exc
+            )
+            return [], "registry"
+        if not ids:
+            return [], "monitor_missing"
+        try:
+            silences = await self.monitor.list_silences()
+        except Exception as exc:
+            logging.getLogger("kontiki_tui").warning("list_silences failed: %s", exc)
+            return [], "monitor_unreachable"
+        return build_silence_rows(silences, raw_services), None
+
     async def add_silence(self, service_name):
         return await self.monitor.add_silence(service_name=service_name)
 
@@ -329,10 +352,21 @@ def apply_incident_field_filter(rows, field, value):
     return [row for row in rows if expected in _incident_field(row, field).lower()]
 
 
+def incident_host_display(alert):
+    """Host cell: disk alias, or ``N/A`` for kontiki-monitor opens."""
+    source = alert.get("source") or alert.get("_producer_service")
+    if source == MONITOR_SERVICE_NAME:
+        return "N/A"
+    attributes = alert.get("attributes") or {}
+    return str(attributes.get("host", "") or "")
+
+
 def _incident_field(row, field):
-    if field in ("service_name", "host"):
+    if field == "host":
+        return incident_host_display(row)
+    if field == "service_name":
         attributes = row.get("attributes") or {}
-        return str(attributes.get(field, "") or "")
+        return str(attributes.get("service_name", "") or "")
     return str(row.get(field, "") or "")
 
 
@@ -344,6 +378,74 @@ def silenced_service_names(silences):
         if name:
             names.add(name)
     return names
+
+
+def build_silence_row(service_name, raw_services):
+    """Join one silenced name with get_services (present / absent / group / live)."""
+    instances = (raw_services or {}).get(service_name)
+    if not isinstance(instances, dict) or not instances:
+        return {
+            "service_name": service_name,
+            "registry": "absent",
+            "group": "business",
+            "groups": ("business",),
+            "live": 0,
+        }
+    groups = []
+    live = 0
+    for entry in instances.values():
+        if not isinstance(entry, dict):
+            continue
+        metadata = entry.get("metadata") or {}
+        group = normalize_registration_group(metadata.get("group"))
+        if group not in groups:
+            groups.append(group)
+        if str(entry.get("status") or "").lower() in ("active", "degraded"):
+            live += 1
+    if not groups:
+        groups.append("business")
+    groups.sort()
+    return {
+        "service_name": service_name,
+        "registry": "present",
+        "group": groups[0],
+        "groups": tuple(groups),
+        "live": live,
+    }
+
+
+def build_silence_rows(silences, raw_services):
+    names = sorted(silenced_service_names(silences))
+    return [build_silence_row(name, raw_services) for name in names]
+
+
+def silence_matches_group(row, group_filter):
+    if group_filter == "all":
+        return True
+    return group_filter in (row.get("groups") or ())
+
+
+def apply_silence_field_filter(rows, field, value):
+    if not field or field == "all" or not value:
+        return list(rows)
+    expected = value.lower()
+    return [row for row in rows if expected in str(row.get(field, "") or "").lower()]
+
+
+def orphan_silenced_count(silenced_names, raw_services):
+    """How many silenced names have no registry entry (any status)."""
+    count = 0
+    for name in silenced_names or []:
+        instances = (raw_services or {}).get(name)
+        if not isinstance(instances, dict) or not instances:
+            count += 1
+    return count
+
+
+def format_orphan_silence_warning(count):
+    if count == 1:
+        return "1 unregistered service still silenced"
+    return "%s unregistered services still silenced" % count
 
 
 def live_service_names_in_group(raw_services, group_filter):

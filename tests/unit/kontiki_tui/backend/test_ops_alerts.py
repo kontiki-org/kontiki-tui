@@ -12,12 +12,18 @@ from kontiki_tui.backend.services import (
     Services,
     alert_to_dict,
     apply_incident_field_filter,
+    apply_silence_field_filter,
+    build_silence_rows,
     display_alert_dict,
     format_instance_unreachable,
     format_last_heartbeat,
+    format_orphan_silence_warning,
     group_for_open_alert,
+    incident_host_display,
     live_service_names_in_group,
     open_alert_matches_group,
+    orphan_silenced_count,
+    silence_matches_group,
     silenced_service_names,
 )
 
@@ -132,6 +138,21 @@ def test_apply_incident_field_filter_attributes_and_title():
     assert [row["alert_id"] for row in by_host] == ["disk:edge-1:/"]
     by_title = apply_incident_field_filter(rows, "title", "missing")
     assert [row["alert_id"] for row in by_title] == ["fleet:alpha:missing"]
+
+
+def test_incident_host_display_na_for_monitor():
+    monitor = {
+        "source": "kontiki-monitor",
+        "attributes": {"service_name": "alpha-service"},
+    }
+    disk = {
+        "_producer_service": "host-check-service",
+        "attributes": {"host": "edge-1"},
+    }
+    assert incident_host_display(monitor) == "N/A"
+    assert incident_host_display(disk) == "edge-1"
+    monitor["source"] = "kontiki-monitor"
+    assert apply_incident_field_filter([monitor, disk], "host", "n/a") == [monitor]
 
 
 def test_silenced_service_names():
@@ -254,3 +275,96 @@ def test_fetch_open_alerts_keeps_other_instance_on_timeout(services):
     assert not registry_failed
     assert instance_errors == [("kontiki-monitor", "mon-1")]
     assert [a["alert_id"] for a in alerts] == ["exception:pay:abc"]
+
+
+def test_build_silence_rows_joins_registry():
+    silences = [
+        {"service_name": "gone-service"},
+        {"service_name": "alpha-service"},
+    ]
+    raw = {
+        "alpha-service": {
+            "a": {
+                "status": "active",
+                "metadata": {"group": "earth"},
+            },
+            "b": {
+                "status": "down",
+                "metadata": {"group": "earth"},
+            },
+        }
+    }
+    rows = build_silence_rows(silences, raw)
+    assert [row["service_name"] for row in rows] == [
+        "alpha-service",
+        "gone-service",
+    ]
+    assert rows[0]["registry"] == "present"
+    assert rows[0]["group"] == "earth"
+    assert rows[0]["live"] == 1
+    assert rows[1]["registry"] == "absent"
+    assert rows[1]["group"] == "business"
+    assert rows[1]["live"] == 0
+    assert silence_matches_group(rows[0], "earth")
+    assert not silence_matches_group(rows[0], "business")
+    assert silence_matches_group(rows[1], "all")
+    assert silence_matches_group(rows[1], "business")
+    assert not silence_matches_group(rows[1], "earth")
+
+
+def test_apply_silence_field_filter_registry():
+    rows = [
+        {"service_name": "alpha-service", "registry": "present", "group": "earth"},
+        {"service_name": "gone-service", "registry": "absent", "group": "business"},
+    ]
+    assert apply_silence_field_filter(rows, "registry", "absent") == [rows[1]]
+    assert apply_silence_field_filter(rows, "all", "") == rows
+
+
+def test_orphan_silenced_count_and_warning():
+    silenced = {"alpha-service", "gone-service"}
+    raw = {
+        "alpha-service": {
+            "a": {"status": "down", "metadata": {"group": "earth"}},
+        }
+    }
+    assert orphan_silenced_count(silenced, raw) == 1
+    assert orphan_silenced_count(silenced, {}) == 2
+    assert format_orphan_silence_warning(1) == ("1 unregistered service still silenced")
+    assert format_orphan_silence_warning(2) == (
+        "2 unregistered services still silenced"
+    )
+
+
+def test_fetch_silence_rows_ok(services):
+    services.services.list_instances = AsyncMock(return_value=["mon-1"])
+    services.services.get_services = AsyncMock(
+        return_value={
+            "alpha-service": {
+                "a": {"status": "active", "metadata": {"group": "platform"}}
+            }
+        }
+    )
+    services.monitor = Mock()
+    services.monitor.list_silences = AsyncMock(
+        return_value=[{"service_name": "alpha-service"}]
+    )
+    rows, error = asyncio.run(services.fetch_silence_rows())
+    assert error is None
+    assert rows[0]["service_name"] == "alpha-service"
+    assert rows[0]["registry"] == "present"
+
+
+def test_fetch_silence_rows_monitor_missing(services):
+    services.services.list_instances = AsyncMock(return_value=[])
+    services.services.get_services = AsyncMock(return_value={})
+    rows, error = asyncio.run(services.fetch_silence_rows())
+    assert rows == []
+    assert error == "monitor_missing"
+
+
+def test_fetch_silence_rows_registry_failure(services):
+    services.services.list_instances = AsyncMock(side_effect=RuntimeError("down"))
+    rows, error = asyncio.run(services.fetch_silence_rows())
+    assert rows == []
+    assert error == "registry"

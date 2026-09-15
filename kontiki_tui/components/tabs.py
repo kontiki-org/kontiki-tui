@@ -6,6 +6,7 @@ from kontiki_tui.components.incidents import IncidentsTab
 from kontiki_tui.components.log import LogTab
 from kontiki_tui.components.services import ServicesTab
 from kontiki_tui.components.settings import SettingsTab
+from kontiki_tui.components.silences import SilencesTab
 
 # -----------------------------------------------------------------------------
 
@@ -16,6 +17,7 @@ class KontikiTabs(Static):
             super().__init__(
                 "Services",
                 "Incidents",
+                "Silences",
                 "Events",
                 "Exceptions",
                 "Logs",
@@ -30,6 +32,7 @@ class KontikiTabs(Static):
         with self.KontikiContent():
             yield ServicesTab(id_="services")
             yield IncidentsTab(id_="incidents")
+            yield SilencesTab(id_="silences")
             yield EventsTab(id_="events")
             yield ExceptionsTab(id_="exceptions")
             yield LogTab(id_="log")

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0] - 2026-09-15
+
+- Silences tab: inventory of monitor `list_silences` (present / absent in the
+  registry). `s` clears the selected silence.
+- Incidents Host column shows `N/A` for `kontiki-monitor` opens (disk alerts
+  still use `attributes.host`).
+
 ## [1.2.1] - 2026-09-14
 
 - Depend on `boomerang-contracts` so pickled `NormalizedAlert` payloads from

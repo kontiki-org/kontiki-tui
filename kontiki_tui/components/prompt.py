@@ -79,6 +79,11 @@ class ErrorPrompt(Prompt):
         super().__init__(message, timeout, prefix="Error: ")
 
 
+class WarningPrompt(Prompt):
+    def __init__(self, message: str, timeout: float = 5.0):
+        super().__init__(message, timeout, prefix="Warning: ")
+
+
 class InfoPrompt(Prompt):
     def __init__(self, message: str, timeout: float = 5.0):
         super().__init__(message, timeout, prefix="")

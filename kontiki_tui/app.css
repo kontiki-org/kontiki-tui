@@ -105,6 +105,38 @@ View Tab - Split Layout
     width: 100%;
 }
 
+#silences_split {
+    layout: vertical;
+    padding: 1;
+    height: 1fr;
+}
+
+#silences_filters {
+    height: auto;
+    margin: 0 0 1 0;
+}
+
+#silences_filters > Label {
+    margin: 1;
+    height: 3;
+    content-align: center middle;
+}
+
+#silences_field {
+    margin: 1 1 0 0;
+    width: 34%;
+}
+
+#silences_value {
+    margin: 1 1 0 0;
+    width: 34%;
+}
+
+#silences_table {
+    height: 1fr;
+    width: 100%;
+}
+
 #incident_detail {
     height: 1fr;
     width: 100%;
@@ -286,6 +318,12 @@ ErrorPrompt {
     height: 1;
     padding-left: 1;
     color: red;
+}
+
+WarningPrompt {
+    height: 1;
+    padding-left: 1;
+    color: orange;
 }
 
 InfoPrompt {

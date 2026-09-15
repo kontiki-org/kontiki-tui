@@ -22,8 +22,9 @@ from kontiki_tui.components.group_filter import (
 )
 from kontiki_tui.components.incidents import IncidentsTab
 from kontiki_tui.components.log import LogTab, render_log_output
-from kontiki_tui.components.prompt import ErrorPrompt, InfoPrompt, Prompt
+from kontiki_tui.components.prompt import ErrorPrompt, InfoPrompt, Prompt, WarningPrompt
 from kontiki_tui.components.services import ServicesTab
+from kontiki_tui.components.silences import SilencesTab
 from kontiki_tui.components.settings import SettingsTab
 from kontiki_tui.components.tabs import KontikiTabs
 from kontiki_tui.config import BASE_CONF, CONF_FILE, load
@@ -115,6 +116,9 @@ class KontikiTuiApp(App):
 
     def _show_error_prompt(self, message: str, timeout: float = 5.0) -> None:
         self._show_prompt(message, timeout, ErrorPrompt)
+
+    def _show_warning_prompt(self, message: str, timeout: float = 5.0) -> None:
+        self._show_prompt(message, timeout, WarningPrompt)
 
     def _show_info_prompt(self, message: str, timeout: float = 5.0) -> None:
         self._show_prompt(message, timeout, InfoPrompt)
@@ -273,7 +277,7 @@ class KontikiTuiApp(App):
 
         if tab_label == "Services":
             services_tab = self.query_one("#services", ServicesTab)
-            self.run_worker(services_tab.update_table())
+            self.run_worker(services_tab.update_table(warn_orphans=True))
             if services_tab.services_table is not None:
                 services_tab.services_table.focus()
         elif tab_label == "Incidents":
@@ -281,6 +285,11 @@ class KontikiTuiApp(App):
             self.run_worker(incidents_tab.update_table())
             if incidents_tab.incidents_table is not None:
                 incidents_tab.incidents_table.focus()
+        elif tab_label == "Silences":
+            silences_tab = self.query_one("#silences", SilencesTab)
+            self.run_worker(silences_tab.update_table())
+            if silences_tab.silences_table is not None:
+                silences_tab.silences_table.focus()
         elif tab_label == "Logs":
             log_tab = self.query_one("#log", LogTab)
             self.run_worker(self._refresh_logs_tab(log_tab))
@@ -313,6 +322,8 @@ class KontikiTuiApp(App):
             self.run_worker(self.query_one("#services", ServicesTab).update_table())
         elif pane.query(IncidentsTab):
             self.run_worker(self.query_one("#incidents", IncidentsTab).update_table())
+        elif pane.query(SilencesTab):
+            self.run_worker(self.query_one("#silences", SilencesTab).update_table())
         elif pane.query(EventsTab):
             self.run_worker(self.query_one("#events", EventsTab).update_table())
         elif pane.query(ExceptionsTab):
