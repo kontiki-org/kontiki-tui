@@ -24,8 +24,8 @@ from kontiki_tui.components.incidents import IncidentsTab
 from kontiki_tui.components.log import LogTab, render_log_output
 from kontiki_tui.components.prompt import ErrorPrompt, InfoPrompt, Prompt, WarningPrompt
 from kontiki_tui.components.services import ServicesTab
-from kontiki_tui.components.silences import SilencesTab
 from kontiki_tui.components.settings import SettingsTab
+from kontiki_tui.components.silences import SilencesTab
 from kontiki_tui.components.tabs import KontikiTabs
 from kontiki_tui.config import BASE_CONF, CONF_FILE, load
 
