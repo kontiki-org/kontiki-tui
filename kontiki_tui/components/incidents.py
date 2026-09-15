@@ -12,6 +12,7 @@ from kontiki_tui.backend.services import (
     display_alert_dict,
     format_instance_unreachable,
     format_last_heartbeat,
+    incident_host_display,
     open_alert_matches_group,
 )
 from kontiki_tui.components.group_filter import (
@@ -148,9 +149,11 @@ class IncidentsTab(Static):
         await self.update_table()
 
     def _cell_value(self, alert, key):
-        if key in ("service_name", "host"):
+        if key == "host":
+            return incident_host_display(alert)
+        if key == "service_name":
             attributes = alert.get("attributes") or {}
-            return str(attributes.get(key, "") or "")
+            return str(attributes.get("service_name", "") or "")
         if key == "occurred_at":
             return format_last_heartbeat(alert.get("occurred_at"))
         return str(alert.get(key, "") or "")

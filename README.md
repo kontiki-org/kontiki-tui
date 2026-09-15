@@ -36,7 +36,8 @@ The Header subtitle is the installed KontikiTUI version.
 
   Mute column (`🔇`) reflects kontiki-monitor silences (`service_name`). `s`
   toggles the selected service; `S` mutes or unmutes all live names in the
-  current Group (always confirmed).
+  current Group (always confirmed). Activating the tab warns if silenced
+  names are no longer in the registry (`WarningPrompt`).
 
   Defaults to **all** via the session **Group** Select on each monitoring tab.
   Options are `all` plus groups discovered in the live registry. Changing it in
@@ -50,6 +51,10 @@ The Header subtitle is the installed KontikiTUI version.
   (disk). Session Group Select and local `Field`/`Value` filters. Selecting a
   row shows the full alert JSON. Mute does not cover host-check disk alerts.
   Requires Kontiki ≥1.13.0 and `boomerang-contracts` (pickled `NormalizedAlert`).
+
+- **Silences**: monitor silences (`list_silences`), including names missing from
+  the registry. `s` clears the selected silence. Session Group Select: absent
+  names show as `business`. Mute is still posed from Services.
 
 - **Events**: events tracked by the registry, with local filters (`Field`/`Value`/`Limit`).
   Domain publishes and RPC calls are shown (`rpc:<remote_method>` when there is no

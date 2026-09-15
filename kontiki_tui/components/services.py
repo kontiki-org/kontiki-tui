@@ -12,9 +12,11 @@ from textual.widgets import DataTable, Input, Label, Select, Static, TextArea
 from kontiki_tui.backend.services import (
     format_degraded_reason,
     format_last_heartbeat,
+    format_orphan_silence_warning,
     live_service_names_in_group,
     matches_group_filter,
     normalize_registration_group,
+    orphan_silenced_count,
     silenced_service_names,
 )
 from kontiki_tui.components.group_filter import (
@@ -234,7 +236,7 @@ class ServicesTab(Static):
                 cells.append(Text(value, justify="center"))
         return tuple(cells)
 
-    async def update_table(self) -> None:
+    async def update_table(self, warn_orphans=False) -> None:
         """Fetch services from backend and update the services table."""
         if self.services_table is None:
             # The table has not been created yet; this should not normally happen,
@@ -324,6 +326,10 @@ class ServicesTab(Static):
 
         self._render_table_from_cache()
         logging.info("Services table updated successfully")
+        if warn_orphans:
+            count = orphan_silenced_count(self._silenced, self._raw_services)
+            if count:
+                self.app._show_warning_prompt(format_orphan_silence_warning(count))
 
     def _render_table_from_cache(self):
         if self.services_table is None:
