@@ -8,7 +8,7 @@ class SimpleEventService:
     async def handle_simple_event(self, payload):
         logging.info("Service received simple_event: %s", payload)
 
-    @on_event("event.name", use_config=True)
+    @on_event("public.event.name", use_config=True)
     async def handle_dynamic_event_name(self, payload):
         logging.info("Service received event.name: %s", payload)
 
