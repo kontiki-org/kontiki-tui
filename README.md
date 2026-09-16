@@ -10,16 +10,20 @@
 
 ## Overview
 
-**KontikiTUI** is a small terminal UI for monitoring [Kontiki](https://github.com/kontiki-org/kontiki)
-systems via the Kontiki service registry and log files.
+**KontikiTUI** is a terminal UI for a [Kontiki](https://github.com/kontiki-org/kontiki)
+fleet: one SSH entry point for registry census, open ops alerts, silences,
+events, exceptions, and logs.
 
-It is built with [Textual](https://textual.textualize.io/), a Python TUI framework.
+It is built with [Textual](https://textual.textualize.io/). A session **Group**
+Select slices every monitoring tab the same way (`all` plus groups discovered
+in the registry).
 
-It is “engineering‑tool” oriented:
-
-- quick view of **running services** (status, last heartbeat, degraded reason, host/pid, service and Kontiki versions),
-- inspect **events** and **exceptions** recorded by the registry,
-- read **logs** without leaving the terminal.
+- **Services** — registered instances (status, heartbeat, host/pid, versions,
+  mute).
+- **Incidents** — open alerts from `kontiki-monitor` and `host-check-service`.
+- **Silences** — persisted monitor mutes, including names no longer registered.
+- **Events** / **Exceptions** — registry trackers.
+- **Logs** — log files of instances currently in the registry.
 
 The Header subtitle is the installed KontikiTUI version.
 
