@@ -52,9 +52,13 @@ The Header subtitle is the installed KontikiTUI version.
   row shows the full alert JSON. Mute does not cover host-check disk alerts.
   Requires Kontiki ≥1.13.0 and `boomerang-contracts` (pickled `NormalizedAlert`).
 
+  ![Incidents tab](assets/incidents.png)
+
 - **Silences**: monitor silences (`list_silences`), including names missing from
   the registry. `s` clears the selected silence. Session Group Select: absent
   names show as `business`. Mute is still posed from Services.
+
+  ![Silences tab](assets/silences.png)
 
 - **Events**: events tracked by the registry, with local filters (`Field`/`Value`/`Limit`).
   Domain publishes and RPC calls are shown (`rpc:<remote_method>` when there is no
