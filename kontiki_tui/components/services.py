@@ -156,6 +156,10 @@ class ServicesTab(Static):
                 read_only=True,
             )
             config_view.border_title = "Configuration"
+            config_view.tooltip = (
+                "Public config from the top-level public mapping. "
+                "Empty if the service publishes none."
+            )
             self.config_view = config_view
             yield config_view
 

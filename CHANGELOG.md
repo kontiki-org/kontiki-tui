@@ -1,9 +1,12 @@
 # Changelog
 
-## [Unreleased]
+## [1.4.0] - 2026-09-16
 
+- Require Kontiki `>=1.14.0` (registration `public` mapping).
 - Example Docker stack runs `kontiki-monitor` (fleet expectations on
   `RpcService` and `SimpleEventService`).
+- Services Configuration pane: tooltip for the top-level `public` mapping.
+  Example `SimpleEventService` publishes `event` there.
 
 ## [1.3.0] - 2026-09-15
 

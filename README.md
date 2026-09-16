@@ -34,7 +34,9 @@ The Header subtitle is the installed KontikiTUI version.
 - **Services**: registered services with status, last heartbeat, degraded reason,
   host/pid, service version, and Kontiki runtime version (`kontiki_version` on
   `get_services`; empty when the instance does not report it; Kontiki ≥1.10.0).
-  Selecting a row shows the configuration/metadata in JSON. Local filters
+  Selecting a row shows the **public** configuration in JSON (top-level
+  `public` mapping on the instance, Kontiki ≥1.14.0). Empty when the service
+  publishes none. Local filters
   (`Field`/`Value`) match service name, instance id, status, host, service
   version, or Kontiki version.
 
@@ -54,7 +56,7 @@ The Header subtitle is the installed KontikiTUI version.
   (fleet / exception fingerprints) and every live `host-check-service` instance
   (disk). Session Group Select and local `Field`/`Value` filters. Selecting a
   row shows the full alert JSON. Mute does not cover host-check disk alerts.
-  Requires Kontiki ≥1.13.0 and `boomerang-contracts` (pickled `NormalizedAlert`).
+  Requires Kontiki ≥1.14.0 and `boomerang-contracts` (pickled `NormalizedAlert`).
 
   ![Incidents tab](assets/incidents.png)
 
