@@ -17,7 +17,8 @@ RUN pip install --no-cache-dir poetry
 # Install dependencies first for better layer caching
 COPY pyproject.toml poetry.lock README.md /app/
 RUN poetry config virtualenvs.create false \
-    && poetry install --no-interaction --no-ansi --only main --no-root
+    && poetry install --no-interaction --no-ansi --only main --no-root \
+    && pip install --no-cache-dir "kontiki-monitor>=1.0.0,<2.0.0"
 
 # Copy application code
 COPY kontiki_tui /app/kontiki_tui

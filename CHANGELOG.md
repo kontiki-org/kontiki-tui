@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+- Example Docker stack runs `kontiki-monitor` (fleet expectations on
+  `RpcService` and `SimpleEventService`).
+
 ## [1.3.0] - 2026-09-15
 
 - Silences tab: inventory of monitor `list_silences` (present / absent in the

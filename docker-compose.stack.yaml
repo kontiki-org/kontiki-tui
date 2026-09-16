@@ -60,3 +60,19 @@ services:
     volumes:
       - ./logs:/app/logs
     restart: unless-stopped
+
+  kontiki-monitor:
+    build:
+      context: .
+    command: >
+      kontiki-monitor
+      --config examples/common.docker.yaml
+      --config examples/kontiki_monitor.yaml
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      kontiki-registry:
+        condition: service_started
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped

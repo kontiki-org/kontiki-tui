@@ -113,7 +113,7 @@ make install
 make run
 ```
 
-### Test stack (RabbitMQ + registry + example services)
+### Test stack (RabbitMQ + registry + example services + kontiki-monitor)
 
 In one terminal:
 

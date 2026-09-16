@@ -1,0 +1,13 @@
+kontiki:
+  registration:
+    group: platform
+
+kontiki-monitor:
+  category: kontiki.registry
+  poll_interval_seconds: 10
+  silences_path: logs/silences.json
+  expected_services:
+    RpcService:
+      min_active: 1
+    SimpleEventService:
+      min_active: 1
