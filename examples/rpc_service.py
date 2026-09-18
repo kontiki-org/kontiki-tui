@@ -13,15 +13,9 @@ class RpcServiceDelegate(ServiceDelegate):
         elif feature == "server_error":
             raise RuntimeError("Unexpected Server error")
 
-    @rpc
     async def rpc_unhandled_exception(self):
-        """Example that triggers an unhandled server-side exception."""
         logging.info("rpc_unhandled_exception called, about to raise.")
-        error = RuntimeError("Unhandled error in rpc_unhandled_exception")
-        await self.publish_exception(
-            error, context={"rpc_method": "rpc_unhandled_exception"}
-        )
-        raise error
+        raise RuntimeError("Unhandled error in rpc_unhandled_exception")
 
 
 class RpcService:
@@ -48,6 +42,6 @@ class RpcService:
 
     @rpc
     async def rpc_unhandled_exception(self):
-        """Example that triggers an unhandled server-side exception."""
+        """Unhandled server-side exception; the registry records it."""
         logging.info("rpc_unhandled_exception called, about to raise.")
         await self.delegate.rpc_unhandled_exception()

@@ -1,11 +1,13 @@
 import logging
 from datetime import datetime
 
+from kontiki.messaging.flow import short_instance_id
 from textual import on
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.widgets import DataTable, Input, Label, Select, Static
 
+from kontiki_tui.backend.services import instance_id_filter_matches
 from kontiki_tui.components.group_filter import (
     GROUP_FILTER_SELECT_CLASS,
     GroupFilterChanged,
@@ -31,8 +33,8 @@ class EventsTab(Static):
         self._events_cache = []
         self.field_options = [
             ("All", "all"),
-            ("Service Name", "service_name"),
-            ("Instance ID", "instance_id"),
+            ("Service", "service_name"),
+            ("Instance", "instance_id"),
             ("Event Type", "event_type"),
         ]
         self.headers = (
@@ -166,9 +168,12 @@ class EventsTab(Static):
             def match(event: dict) -> bool:
                 if field == "event_type":
                     candidate = self._event_type_label(event)
-                else:
-                    candidate = event.get(field, "")
-                return expected in str(candidate).lower()
+                    return expected in candidate.lower()
+                if field == "instance_id":
+                    return instance_id_filter_matches(
+                        event.get("instance_id"), expected
+                    )
+                return expected in str(event.get(field, "")).lower()
 
             filtered = [event for event in events if match(event)]
 
@@ -191,7 +196,7 @@ class EventsTab(Static):
                 (
                     self._format_time(event.get("timestamp", "")),
                     str(event.get("service_name", "")),
-                    str(event.get("instance_id", "")),
+                    short_instance_id(str(event.get("instance_id") or "")),
                     self._event_type_label(event),
                     str(event.get("host", "")),
                 )

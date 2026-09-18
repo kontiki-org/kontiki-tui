@@ -21,10 +21,11 @@ class ConfirmPrompt(Static):
             self.payload = payload or {}
             super().__init__()
 
-    def __init__(self, text, action, payload=None):
+    def __init__(self, text, action, payload=None, target=None):
         super().__init__(text, markup=False)
         self._action = action
         self._payload = payload or {}
+        self._target = target
 
     def on_mount(self):
         self.focus()
@@ -44,13 +45,12 @@ class ConfirmPrompt(Static):
         self.remove()
 
     def _post_result(self, confirmed):
-        try:
-            tab = self.app.query_one("#services")
-            tab.post_message(self.Result(confirmed, self._action, self._payload))
-        except Exception as exc:
+        if self._target is None:
             logging.getLogger("kontiki_tui").error(
-                "ConfirmPrompt: unable to post result: %s", exc, exc_info=True
+                "ConfirmPrompt: no target for action=%s", self._action
             )
+            return
+        self._target.post_message(self.Result(confirmed, self._action, self._payload))
 
 
 class Prompt(Static):
@@ -72,6 +72,12 @@ class Prompt(Static):
 
     def action_dismiss(self) -> None:
         self.remove()
+
+
+def show_confirm(app, target, text, action, payload=None):
+    prompt_area = app.query_one("#prompt-area")
+    prompt_area.remove_children()
+    prompt_area.mount(ConfirmPrompt(text, action, payload, target=target))
 
 
 class ErrorPrompt(Prompt):

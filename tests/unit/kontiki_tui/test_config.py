@@ -14,6 +14,7 @@ def test_load_creates_default_config_when_missing(tmp_path: Path):
     assert conf_path.exists()
     assert "services" not in conf
     assert "group_filter" not in conf.get("services", {})
+    assert conf["export"]["directory"] == "/tmp/kontiki-tui-exports"
 
 
 def test_load_reads_existing_yaml(tmp_path: Path):

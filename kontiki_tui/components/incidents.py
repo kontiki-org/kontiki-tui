@@ -7,6 +7,7 @@ from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.widgets import DataTable, Input, Label, Select, Static, TextArea
 
+from kontiki_tui.backend.export import incident_stem, render_incident
 from kontiki_tui.backend.services import (
     apply_incident_field_filter,
     display_alert_dict,
@@ -23,6 +24,11 @@ from kontiki_tui.components.group_filter import (
     make_group_filter_select,
     refresh_group_filter_options,
 )
+from kontiki_tui.components.markdown_export import (
+    finish_markdown_export,
+    request_markdown_export,
+)
+from kontiki_tui.components.prompt import ConfirmPrompt
 
 # -----------------------------------------------------------------------------
 
@@ -52,6 +58,7 @@ _HEADERS = (
 class IncidentsTab(Static):
     BINDINGS = [
         Binding("r", "refresh_incidents", description="Refresh incidents"),
+        Binding("e", "export_incident", description="Export"),
     ]
 
     def __init__(self, id_="incidents"):
@@ -147,6 +154,19 @@ class IncidentsTab(Static):
 
     async def action_refresh_incidents(self):
         await self.update_table()
+
+    def action_export_incident(self):
+        request_markdown_export(
+            self,
+            self._selected_alert(),
+            "No incident selected",
+            incident_stem,
+            render_incident,
+        )
+
+    @on(ConfirmPrompt.Result)
+    def on_confirm_prompt_result(self, event):
+        finish_markdown_export(self, event)
 
     def _cell_value(self, alert, key):
         if key == "host":
@@ -248,3 +268,14 @@ class IncidentsTab(Static):
         if cursor_row < len(row_keys):
             alert = self.row_data_map.get(row_keys[cursor_row], {})
             self._update_detail_view(alert)
+
+    def _selected_alert(self):
+        if self.incidents_table is None:
+            return None
+        cursor_row = self.incidents_table.cursor_row
+        if cursor_row is None:
+            return None
+        row_keys = list(self.incidents_table.rows.keys())
+        if cursor_row < 0 or cursor_row >= len(row_keys):
+            return None
+        return self.row_data_map.get(row_keys[cursor_row])

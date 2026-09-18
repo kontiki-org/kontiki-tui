@@ -1,5 +1,27 @@
 # Changelog
 
+## [Unreleased]
+
+## [1.5.0] - 2026-09-18
+
+- Require Kontiki `>=1.15.0` (exception record: `flow_id`, `entrypoint`,
+  `operation`).
+- Exceptions tab: Flow, Entrypoint, Operation columns. No Context column.
+  Local filters include Flow ID, Entrypoint, Operation.
+- Flows tab: AMQP chains grouped by `flow_id` (hops in chronological
+  order). Session Group lists flows that touch the group and still shows
+  the full chain. Events stays the flat journal. Census RPCs
+  (`get_services`, `list_instances`, tracker/silence/open-alert reads)
+  are hidden on Events and Flows.
+- Events, Exceptions, and Flows hops show the same 12-hex Instance as
+  Services. Field labels: Service, Instance.
+- Tab order: Services, Incidents, Flows, Events, Exceptions, Logs,
+  Silences, Settings.
+- `e` on Incidents, Flows, and Exceptions confirms the target path
+  (`Export …? [y/n]`), then writes a Markdown file of the selected row to
+  `export.directory` (default `/tmp/kontiki-tui-exports`) and overwrites
+  `kontiki-tui-last.md` in the same folder.
+
 ## [1.4.0] - 2026-09-16
 
 - Require Kontiki `>=1.14.0` (registration `public` mapping).

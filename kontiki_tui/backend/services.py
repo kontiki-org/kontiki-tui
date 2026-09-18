@@ -7,6 +7,18 @@ from kontiki.registry import ServiceRegistryProxy
 
 OPS_OPEN_ALERT_SOURCES = ("kontiki-monitor", "host-check-service")
 MONITOR_SERVICE_NAME = "kontiki-monitor"
+CENSUS_REMOTE_METHODS = frozenset(
+    (
+        "get_services",
+        "list_instances",
+        "get_events",
+        "get_filtered_events",
+        "get_exceptions",
+        "get_filtered_exceptions",
+        "list_silences",
+        "list_open_alerts",
+    )
+)
 
 
 def normalize_registration_group(group):
@@ -44,6 +56,161 @@ def implied_platform_group(service_name):
     return None
 
 
+def event_flow_id(event):
+    raw = event.get("flow_id")
+    if raw is None:
+        return ""
+    return str(raw).strip()
+
+
+def event_type_label(event):
+    event_type = str(event.get("event_type", "") or "").strip()
+    if event_type:
+        return event_type
+    remote_method = str(event.get("remote_method", "") or "").strip()
+    if remote_method:
+        return f"rpc:{remote_method}"
+    return ""
+
+
+def event_timestamp_sort_key(event):
+    timestamp = str(event.get("timestamp", "") or "").strip()
+    if not timestamp:
+        return float("-inf")
+    return datetime.fromisoformat(timestamp.replace("Z", "+00:00")).timestamp()
+
+
+def format_hop_time(timestamp):
+    """Hop clock as ``HH:MM:SS.ff`` (centiseconds)."""
+    if timestamp is None:
+        return ""
+    text = str(timestamp).strip()
+    if not text:
+        return ""
+    parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    hundredths = parsed.microsecond // 10000
+    return "%s.%02d" % (parsed.strftime("%H:%M:%S"), hundredths)
+
+
+def format_flow_index_time(timestamp, now=None):
+    """Last/Started: ``HH:MM:SS`` if UTC today, else ``YYYY-MM-DD HH:MM:SS``."""
+    full = format_last_heartbeat(timestamp)
+    if not full:
+        return ""
+    if now is None:
+        now = datetime.now(timezone.utc)
+    elif now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    else:
+        now = now.astimezone(timezone.utc)
+    today = now.strftime("%Y-%m-%d")
+    prefix = today + " "
+    if full.startswith(prefix):
+        return full[len(prefix) :]
+    return full
+
+
+def instance_id_filter_matches(instance_id, expected):
+    """True if ``expected`` is a substring of the full id or the 12-hex short id."""
+    needle = str(expected or "").lower()
+    if not needle:
+        return True
+    raw = str(instance_id or "")
+    return needle in raw.lower() or needle in short_instance_id(raw).lower()
+
+
+def group_for_event(event, instance_group_map):
+    """Registry group of an event emitter, or ``business`` if unknown."""
+    service_name = event.get("service_name")
+    implied = implied_platform_group(service_name)
+    if implied:
+        return implied
+    key = (service_name, event.get("instance_id"))
+    return instance_group_map.get(key, "business")
+
+
+def flow_touches_group(hop_groups, group_filter):
+    """True if a flow belongs in the session slice (any hop in the group)."""
+    if group_filter == "all":
+        return True
+    return any(matches_group_filter(group, group_filter) for group in hop_groups)
+
+
+def build_flows(events, instance_group_map, group_filter="all"):
+    """Group tracker events by ``flow_id`` (omit blank ids)."""
+    buckets = {}
+    for event in events or []:
+        flow_id = event_flow_id(event)
+        if not flow_id:
+            continue
+        buckets.setdefault(flow_id, []).append(event)
+
+    flows = []
+    for flow_id, hops in buckets.items():
+        hops_sorted = sorted(hops, key=event_timestamp_sort_key)
+        groups = []
+        annotated = []
+        for hop in hops_sorted:
+            group = group_for_event(hop, instance_group_map)
+            row = dict(hop)
+            row["_group"] = group
+            annotated.append(row)
+            if group not in groups:
+                groups.append(group)
+        if not flow_touches_group(groups, group_filter):
+            continue
+        first = annotated[0]
+        last = annotated[-1]
+        origin = str(first.get("service_name", "") or "").strip()
+        flows.append(
+            {
+                "flow_id": flow_id,
+                "hops": annotated,
+                "groups": tuple(groups),
+                "origin": origin,
+                "first_type": event_type_label(first),
+                "started": first.get("timestamp", "") or "",
+                "last": last.get("timestamp", "") or "",
+            }
+        )
+    flows.sort(
+        key=lambda flow: event_timestamp_sort_key({"timestamp": flow["last"]}),
+        reverse=True,
+    )
+    return flows
+
+
+def apply_flow_field_filter(flows, field, value):
+    if not field or field == "all" or not value:
+        return list(flows)
+    expected = value.lower()
+    matched = []
+    for flow in flows:
+        if field == "flow_id":
+            haystack = str(flow.get("flow_id", "") or "")
+        elif field == "origin":
+            haystack = str(flow.get("origin", "") or "")
+        elif field == "event_type":
+            haystack = str(flow.get("first_type", "") or "")
+        elif field == "service_name":
+            if any(
+                expected in str(hop.get("service_name", "") or "").lower()
+                for hop in flow.get("hops") or []
+            ):
+                matched.append(flow)
+            continue
+        elif field == "group":
+            groups = flow.get("groups") or ()
+            if any(expected in str(group).lower() for group in groups):
+                matched.append(flow)
+            continue
+        else:
+            haystack = ""
+        if expected in haystack.lower():
+            matched.append(flow)
+    return matched
+
+
 def group_filter_select_options(discovered_groups):
     """Build Select options: All first, then groups seen in the registry."""
     options = [("All", "all")]
@@ -67,15 +234,17 @@ class Services:
         return sorted(set(instance_group_map.values()))
 
     def _is_internal_registry_event(self, event: dict) -> bool:
-        """True for TUI observer traffic and ServiceRegistry bookkeeping.
+        """True for TUI observer traffic, Registry bookkeeping, and census RPCs.
 
-        Domain publishes and RPC call entries (``remote_method`` / ``_rpc_event``)
-        stay visible in the Events tab.
+        Domain publishes and other RPC calls stay visible.
         """
         service_name = event.get("service_name")
-        if not isinstance(service_name, str):
-            return False
-        return "kontiki_tui" in service_name or service_name == "ServiceRegistry"
+        if isinstance(service_name, str) and (
+            "kontiki_tui" in service_name or service_name == "ServiceRegistry"
+        ):
+            return True
+        method = str(event.get("remote_method") or "").strip()
+        return method in CENSUS_REMOTE_METHODS
 
     def _filter_registry_events(
         self, events: list[dict], include_internal: bool = False
@@ -119,12 +288,7 @@ class Services:
         deregistered) so that historical business events remain visible.
         ``ServiceRegistry`` is platform (it does not self-register).
         """
-        service_name = event.get("service_name")
-        implied = implied_platform_group(service_name)
-        if implied:
-            return implied
-        key = (service_name, event.get("instance_id"))
-        return instance_group_map.get(key, "business")
+        return group_for_event(event, instance_group_map)
 
     async def get_events(
         self, include_internal: bool = False, group_filter: str = "all"
@@ -141,6 +305,12 @@ class Services:
                 self._group_for_event(e, instance_group_map), group_filter
             )
         ]
+
+    async def get_flows(self, group_filter="all"):
+        """Build flow rows from tracker events (full chain, slice by hop group)."""
+        events = await self.get_events(group_filter="all")
+        instance_group_map = await self._build_instance_group_map()
+        return build_flows(events, instance_group_map, group_filter)
 
     async def get_filtered_events(
         self,

@@ -1,5 +1,5 @@
 """Shared group-filter Select for Services / Incidents /
-Silences / Events / Exceptions / Logs."""
+Flows / Events / Exceptions / Logs / Silences."""
 
 from textual.message import Message
 from textual.widgets import Label, Select
