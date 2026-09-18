@@ -6,6 +6,7 @@ from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.widgets import DataTable, Input, Label, Select, Static
 
+from kontiki_tui.backend.export import flow_stem, render_flow
 from kontiki_tui.backend.services import (
     apply_flow_field_filter,
     event_type_label,
@@ -20,6 +21,11 @@ from kontiki_tui.components.group_filter import (
     make_group_filter_select,
     refresh_group_filter_options,
 )
+from kontiki_tui.components.markdown_export import (
+    finish_markdown_export,
+    request_markdown_export,
+)
+from kontiki_tui.components.prompt import ConfirmPrompt
 
 _FIELD_OPTIONS = [
     ("All", "all"),
@@ -52,6 +58,7 @@ _HOP_HEADERS = (
 class FlowsTab(Static):
     BINDINGS = [
         Binding("r", "refresh_flows", description="Refresh flows"),
+        Binding("e", "export_flow", description="Export"),
     ]
 
     def __init__(self, id_="flows"):
@@ -153,6 +160,19 @@ class FlowsTab(Static):
 
     async def action_refresh_flows(self):
         await self.update_table()
+
+    def action_export_flow(self):
+        request_markdown_export(
+            self,
+            self._selected_flow(),
+            "No flow selected",
+            flow_stem,
+            render_flow,
+        )
+
+    @on(ConfirmPrompt.Result)
+    def on_confirm_prompt_result(self, event):
+        finish_markdown_export(self, event)
 
     def _visible_flows(self):
         field, value, limit = self._get_filter_state()

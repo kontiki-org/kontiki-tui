@@ -16,6 +16,9 @@ BASE_CONF = {
         # If not set in the user config, this default will be used.
         "max-lines": 2000,
     },
+    "export": {
+        "directory": "/tmp/kontiki-tui-exports",
+    },
 }
 
 

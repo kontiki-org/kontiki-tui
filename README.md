@@ -55,7 +55,9 @@ The Header subtitle is the installed KontikiTUI version.
 - **Incidents**: open ops alerts (`list_open_alerts`) from `kontiki-monitor`
   (fleet / exception fingerprints) and every live `host-check-service` instance
   (disk). Session Group Select and local `Field`/`Value` filters. Selecting a
-  row shows the full alert JSON. Mute does not cover host-check disk alerts.
+  row shows the full alert JSON. `e` confirms the file path then writes a
+  Markdown export of the selected alert to `export.directory`. Mute does not
+  cover host-check disk alerts.
   Requires Kontiki ≥1.14.0 and `boomerang-contracts` (pickled `NormalizedAlert`).
 
   ![Incidents tab](assets/incidents.png)
@@ -66,7 +68,8 @@ The Header subtitle is the installed KontikiTUI version.
   (chronological, including hops outside the session Group). A flow is
   listed when at least one hop's emitter is in the selected Group.
   Events without `flow_id` stay on Events only. Same census-RPC hide as
-  Events.
+  Events. `e` confirms the file path then writes a Markdown export of the
+  selected flow (hops included) to `export.directory`.
 
 - **Events**: events tracked by the registry, with local filters (`Field`/`Value`/`Limit`:
   Service, Instance, Event Type). Instance is the 12-hex id.
@@ -78,9 +81,12 @@ The Header subtitle is the installed KontikiTUI version.
 
   ![Events tab](assets/events.png)
 
-- **Exceptions**: exceptions from the registry exception tracker, with the same local
-  filtering approach (Service, Instance, Type, Message). Instance is the 12-hex id.
-  Also filtered by the session Group Select. The `context` payload is shown compactly.
+- **Exceptions**: registry exception index (`flow_id`, entrypoint, operation,
+  type, message). Instance is the 12-hex id. Same local filters and session
+  Group Select. Empty cells when `flow_id` / entrypoint / operation are null.
+  Traceback stays in Logs (`[flow=…]`). Requires Kontiki ≥1.15.0.
+  `e` confirms the file path then writes a Markdown export of the selected
+  exception to `export.directory`.
 
   ![Exceptions tab](assets/exceptions.png)
 
@@ -99,6 +105,9 @@ The Header subtitle is the installed KontikiTUI version.
   ![Silences tab](assets/silences.png)
 
 - **Settings**: edit `~/.config/kontiki_tui.yaml` (the app reloads configuration on save).
+  `export.directory` (default `/tmp/kontiki-tui-exports`) is the folder for Markdown
+  exports (`e` then `y` on Incidents, Flows, Exceptions). Each export also
+  overwrites `kontiki-tui-last.md` in that folder.
 
   ![Settings tab](assets/settings.png)
 

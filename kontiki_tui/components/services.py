@@ -28,7 +28,7 @@ from kontiki_tui.components.group_filter import (
     make_group_filter_select,
     refresh_group_filter_options,
 )
-from kontiki_tui.components.prompt import ConfirmPrompt
+from kontiki_tui.components.prompt import ConfirmPrompt, show_confirm
 
 # -----------------------------------------------------------------------------
 
@@ -445,9 +445,7 @@ class ServicesTab(Static):
         return silenced_service_names(raw)
 
     def _show_confirm(self, text, action, payload):
-        prompt_area = self.app.query_one("#prompt-area")
-        prompt_area.remove_children()
-        prompt_area.mount(ConfirmPrompt(text, action, payload))
+        show_confirm(self.app, self, text, action, payload)
 
     async def _monitor_ready_for_mute(self, backend):
         try:

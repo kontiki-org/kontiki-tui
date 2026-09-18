@@ -1,4 +1,3 @@
-import json
 import logging
 from datetime import datetime
 
@@ -8,6 +7,7 @@ from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.widgets import DataTable, Input, Label, Select, Static
 
+from kontiki_tui.backend.export import exception_stem, render_exception
 from kontiki_tui.backend.services import instance_id_filter_matches
 from kontiki_tui.components.group_filter import (
     GROUP_FILTER_SELECT_CLASS,
@@ -17,11 +17,23 @@ from kontiki_tui.components.group_filter import (
     make_group_filter_select,
     refresh_group_filter_options,
 )
+from kontiki_tui.components.markdown_export import (
+    finish_markdown_export,
+    request_markdown_export,
+)
+from kontiki_tui.components.prompt import ConfirmPrompt
+
+
+def _cell(value):
+    if value is None:
+        return ""
+    return str(value)
 
 
 class ExceptionsTab(Static):
     BINDINGS = [
         Binding("r", "refresh_exceptions", description="Refresh exceptions"),
+        Binding("e", "export_exception", description="Export"),
     ]
 
     def __init__(self, id_="exceptions"):
@@ -32,10 +44,14 @@ class ExceptionsTab(Static):
         self.limit_input = None
         self.group_filter_select = None
         self._exceptions_cache = []
+        self.row_data_map = {}
         self.field_options = [
             ("All", "all"),
             ("Service", "service_name"),
             ("Instance", "instance_id"),
+            ("Flow ID", "flow_id"),
+            ("Entrypoint", "entrypoint"),
+            ("Operation", "operation"),
             ("Exception Type", "exception_type"),
             ("Message", "message"),
         ]
@@ -43,9 +59,11 @@ class ExceptionsTab(Static):
             "Time",
             "Service",
             "Instance",
+            "Flow",
+            "Entrypoint",
+            "Operation",
             "Type",
             "Message",
-            "Context",
         )
 
     def compose(self):
@@ -82,13 +100,26 @@ class ExceptionsTab(Static):
             self.exceptions_table = table
             yield table
 
-    async def action_refresh_exceptions(self) -> None:
+    async def action_refresh_exceptions(self):
         await self.update_table()
 
-    def on_mount(self) -> None:
+    def action_export_exception(self):
+        request_markdown_export(
+            self,
+            self._selected_exception(),
+            "No exception selected",
+            exception_stem,
+            render_exception,
+        )
+
+    @on(ConfirmPrompt.Result)
+    def on_confirm_prompt_result(self, event):
+        finish_markdown_export(self, event)
+
+    def on_mount(self):
         self._sync_value_input_state()
 
-    def _sync_value_input_state(self) -> None:
+    def _sync_value_input_state(self):
         if not self.value_input or not self.field_input:
             return
         field = (
@@ -98,12 +129,12 @@ class ExceptionsTab(Static):
         )
         self.value_input.disabled = field == "all"
 
-    def on_input_changed(self, event: Input.Changed) -> None:
+    def on_input_changed(self, event: Input.Changed):
         if event.input.id in {"exceptions_value", "exceptions_limit"}:
             self._render_table_from_cache()
 
     @on(Select.Changed)
-    def on_select_changed(self, event: Select.Changed) -> None:
+    def on_select_changed(self, event: Select.Changed):
         if GROUP_FILTER_SELECT_CLASS in event.select.classes:
             if is_group_filter_sync(self.app):
                 return
@@ -119,7 +150,7 @@ class ExceptionsTab(Static):
             self._sync_value_input_state()
             self._render_table_from_cache()
 
-    def _format_time(self, timestamp: str) -> str:
+    def _format_time(self, timestamp):
         if not timestamp:
             return ""
         try:
@@ -129,8 +160,8 @@ class ExceptionsTab(Static):
         except Exception:
             return str(timestamp)
 
-    def _exception_sort_key(self, row: dict) -> float:
-        timestamp = str(row.get("timestamp", "")).strip()
+    def _exception_sort_key(self, row):
+        timestamp = str(row.get("timestamp") or "").strip()
         if not timestamp:
             return float("-inf")
         try:
@@ -138,22 +169,7 @@ class ExceptionsTab(Static):
         except Exception:
             return float("-inf")
 
-    def _format_context(self, context) -> str:
-        if context is None or context == "":
-            return ""
-        if isinstance(context, (dict, list)):
-            try:
-                text = json.dumps(context, default=str, ensure_ascii=False)
-            except Exception:
-                text = str(context)
-        else:
-            text = str(context)
-        max_len = 96
-        if len(text) > max_len:
-            return text[: max_len - 3] + "..."
-        return text
-
-    def _get_filter_state(self) -> tuple[str, str, int]:
+    def _get_filter_state(self):
         field = (
             str(self.field_input.value).strip().lower()
             if self.field_input and self.field_input.value is not None
@@ -167,24 +183,24 @@ class ExceptionsTab(Static):
             limit = 500
         return field, value, limit
 
-    def _apply_local_filters(self, rows: list[dict]) -> list[dict]:
+    def _apply_local_filters(self, rows):
         field, value, limit = self._get_filter_state()
         filtered = rows
 
         if field and field != "all" and value:
             expected = value.lower()
 
-            def match(exc: dict) -> bool:
+            def match(exc):
                 if field == "instance_id":
                     return instance_id_filter_matches(exc.get("instance_id"), expected)
-                return expected in str(exc.get(field, "")).lower()
+                return expected in _cell(exc.get(field)).lower()
 
             filtered = [exc for exc in rows if match(exc)]
 
         sorted_rows = sorted(filtered, key=self._exception_sort_key, reverse=True)
         return sorted_rows[:limit]
 
-    def _render_table_from_cache(self) -> None:
+    def _render_table_from_cache(self):
         if self.exceptions_table is None:
             try:
                 self.exceptions_table = self.query_one("#exceptions_table", DataTable)
@@ -198,12 +214,14 @@ class ExceptionsTab(Static):
         for exc in limited:
             table_rows.append(
                 (
-                    self._format_time(str(exc.get("timestamp", "") or "")),
-                    str(exc.get("service_name", "")),
-                    short_instance_id(str(exc.get("instance_id") or "")),
-                    str(exc.get("exception_type", "")),
-                    str(exc.get("message", "")),
-                    self._format_context(exc.get("context")),
+                    self._format_time(_cell(exc.get("timestamp"))),
+                    _cell(exc.get("service_name")),
+                    short_instance_id(_cell(exc.get("instance_id"))),
+                    _cell(exc.get("flow_id")),
+                    _cell(exc.get("entrypoint")),
+                    _cell(exc.get("operation")),
+                    _cell(exc.get("exception_type")),
+                    _cell(exc.get("message")),
                 )
             )
 
@@ -211,11 +229,25 @@ class ExceptionsTab(Static):
             self.exceptions_table.add_columns(*self.headers)
 
         self.exceptions_table.clear()
+        self.row_data_map = {}
         if table_rows:
-            self.exceptions_table.add_rows(table_rows)
+            row_keys = self.exceptions_table.add_rows(table_rows)
+            for row_key, exc in zip(row_keys, limited):
+                self.row_data_map[row_key] = exc
         self.exceptions_table.refresh()
 
-    async def update_table(self) -> None:
+    def _selected_exception(self):
+        if self.exceptions_table is None:
+            return None
+        cursor_row = self.exceptions_table.cursor_row
+        if cursor_row is None:
+            return None
+        row_keys = list(self.exceptions_table.rows.keys())
+        if cursor_row < 0 or cursor_row >= len(row_keys):
+            return None
+        return self.row_data_map.get(row_keys[cursor_row])
+
+    async def update_table(self):
         if self.exceptions_table is None:
             try:
                 self.exceptions_table = self.query_one("#exceptions_table", DataTable)

@@ -661,14 +661,14 @@ colors = ["colorama (>=0.4.6)"]
 
 [[package]]
 name = "kontiki"
-version = "1.14.0"
+version = "1.15.0"
 description = "Microservices framework in Python."
 optional = false
 python-versions = "<4.0,>=3.11"
 groups = ["main"]
 files = [
-    {file = "kontiki-1.14.0-py3-none-any.whl", hash = "sha256:5e73a82c5e44bda6026cd0fbe929fbd66efa057827e18e1e8d4936b9ee89029c"},
-    {file = "kontiki-1.14.0.tar.gz", hash = "sha256:e6a0b28cc0cc42fa32ee69fda89ab122dda95a3865c4ffef93e960c3d587b827"},
+    {file = "kontiki-1.15.0-py3-none-any.whl", hash = "sha256:50884c1220f51dca393d5b0a12d31b50fa14064cf330c323cb1f6ba8bc3f2e68"},
+    {file = "kontiki-1.15.0.tar.gz", hash = "sha256:c25acb78ee54572b461223a57bbe91eb7867231e497bdf00426241a6cd409fc8"},
 ]
 
 [package.dependencies]
@@ -1672,4 +1672,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<4.0"
-content-hash = "86ac3bc610ba600ed6a4de1743313a5896193e88076b2fba4273ff8d88de4895"
+content-hash = "8b6ce7505258cc05c195069487a96932777bb61dc302077c20ef40dd3987cf32"
