@@ -13,6 +13,7 @@ from kontiki_tui.backend.services import (
     format_degraded_reason,
     format_last_heartbeat,
     format_orphan_silence_warning,
+    instance_id_filter_matches,
     live_service_names_in_group,
     matches_group_filter,
     normalize_registration_group,
@@ -32,8 +33,8 @@ from kontiki_tui.components.prompt import ConfirmPrompt
 # -----------------------------------------------------------------------------
 
 _BASE_HEADERS = {
-    "service_name": "Service ID",
-    "instance_id": "Short Instance ID",
+    "service_name": "Service",
+    "instance_id": "Instance",
     "service_version": "Version",
     "kontiki_version": "Kontiki",
     "status": "Status",
@@ -46,8 +47,8 @@ _BASE_HEADERS = {
 
 _FIELD_OPTIONS = [
     ("All", "all"),
-    ("Service Name", "service_name"),
-    ("Instance ID", "instance_id"),
+    ("Service", "service_name"),
+    ("Instance", "instance_id"),
     ("Status", "status"),
     ("Host", "host"),
     ("Version", "service_version"),
@@ -58,8 +59,8 @@ _FIELD_OPTIONS = [
 def apply_service_field_filter(rows, field, value):
     """Keep rows matching Field/Value (substring, case-insensitive).
 
-    ``all`` or empty value returns the list unchanged. Instance ID matches
-    the displayed short id and the full UUID in metadata. Status matches
+    ``all`` or empty value returns the list unchanged. Instance matches
+    the displayed 12-hex id and the full UUID in metadata. Status matches
     the raw registry status, not the emoji.
     """
     if not field or field == "all" or not value:
@@ -70,10 +71,9 @@ def apply_service_field_filter(rows, field, value):
 
 def _service_row_matches_field(row, field, expected):
     if field == "instance_id":
-        short = str(row.get("instance_id", "")).lower()
         metadata = row.get("metadata") or {}
-        full = str(metadata.get("instance_id", "")).lower()
-        return expected in short or expected in full
+        full = metadata.get("instance_id") or row.get("instance_id")
+        return instance_id_filter_matches(full, expected)
     return expected in str(row.get(field, "")).lower()
 
 

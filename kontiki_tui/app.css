@@ -261,6 +261,48 @@ SettingsTab {
     height: 1fr;
 }
 
+#flows_split {
+    layout: vertical;
+    padding: 1;
+    height: 1fr;
+}
+
+#flows_filters {
+    height: auto;
+    margin: 0 0 1 0;
+}
+
+#flows_filters > Label {
+    margin: 1;
+    height: 3;
+    content-align: center middle;
+}
+
+#flows_field {
+    margin: 1 1 0 0;
+    width: 34%;
+}
+
+#flows_value {
+    margin: 1 1 0 0;
+    width: 34%;
+}
+
+#flows_limit {
+    margin: 1 1 0 0;
+    width: 10;
+}
+
+#flows_table {
+    height: 1fr;
+    width: 100%;
+}
+
+#hops_table {
+    height: 1fr;
+    width: 100%;
+}
+
 #exceptions_vertical {
     layout: vertical;
     height: 1fr;

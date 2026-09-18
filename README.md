@@ -11,8 +11,8 @@
 ## Overview
 
 **KontikiTUI** is a terminal UI for a [Kontiki](https://github.com/kontiki-org/kontiki)
-fleet: one SSH entry point for registry census, open ops alerts, silences,
-events, exceptions, and logs.
+fleet: one SSH entry point for registry census, open ops alerts, flows,
+events, exceptions, logs, and silences.
 
 It is built with [Textual](https://textual.textualize.io/). A session **Group**
 Select slices every monitoring tab the same way (`all` plus groups discovered
@@ -21,9 +21,10 @@ in the registry).
 - **Services** — registered instances (status, heartbeat, host/pid, versions,
   mute).
 - **Incidents** — open alerts from `kontiki-monitor` and `host-check-service`.
-- **Silences** — persisted monitor mutes, including names no longer registered.
-- **Events** / **Exceptions** — registry trackers.
+- **Flows** / **Events** / **Exceptions** — registry trackers (chains by
+  `flow_id`, flat journal, exceptions).
 - **Logs** — log files of instances currently in the registry.
+- **Silences** — persisted monitor mutes, including names no longer registered.
 
 The Header subtitle is the installed KontikiTUI version.
 
@@ -37,8 +38,7 @@ The Header subtitle is the installed KontikiTUI version.
   Selecting a row shows the **public** configuration in JSON (top-level
   `public` mapping on the instance, Kontiki ≥1.14.0). Empty when the service
   publishes none. Local filters
-  (`Field`/`Value`) match service name, instance id, status, host, service
-  version, or Kontiki version.
+  (`Field`/`Value`): Service, Instance, Status, Host, Version, Kontiki.
 
   Mute column (`🔇`) reflects kontiki-monitor silences (`service_name`). `s`
   toggles the selected service; `S` mutes or unmutes all live names in the
@@ -48,7 +48,7 @@ The Header subtitle is the installed KontikiTUI version.
   Defaults to **all** via the session **Group** Select on each monitoring tab.
   Options are `all` plus groups discovered in the live registry. Changing it in
   one tab updates all tabs. Missing/blank Registry `group` counts as business.
-  Instance column shows the Kontiki short id (12 hex), not the full UUID.
+  Instance is the Kontiki 12-hex id (same on Events, Exceptions, Flows hops).
 
   ![Services tab](assets/services.png)
 
@@ -60,21 +60,26 @@ The Header subtitle is the installed KontikiTUI version.
 
   ![Incidents tab](assets/incidents.png)
 
-- **Silences**: monitor silences (`list_silences`), including names missing from
-  the registry. `s` clears the selected silence. Session Group Select: absent
-  names show as `business`. Mute is still posed from Services.
+- **Flows**: chains from the same event tracker, grouped by `flow_id`.
+  Top table is one row per flow (Flow Id, window, hop count, origin
+  service, first type); bottom table is that flow's hops
+  (chronological, including hops outside the session Group). A flow is
+  listed when at least one hop's emitter is in the selected Group.
+  Events without `flow_id` stay on Events only. Same census-RPC hide as
+  Events.
 
-  ![Silences tab](assets/silences.png)
-
-- **Events**: events tracked by the registry, with local filters (`Field`/`Value`/`Limit`).
+- **Events**: events tracked by the registry, with local filters (`Field`/`Value`/`Limit`:
+  Service, Instance, Event Type). Instance is the 12-hex id.
   Domain publishes and RPC calls are shown (`rpc:<remote_method>` when there is no
-  `event_type`). Hides registry bookkeeping and TUI observer traffic.
+  `event_type`). Hides registry bookkeeping, TUI observer traffic, and census
+  RPCs (`get_services`, `list_instances`, tracker and silence/open-alert reads).
   Filtered by the same session Group Select (registry jointure).
   Deregistered instances fall back to `business`.
 
   ![Events tab](assets/events.png)
 
-- **Exceptions**: exceptions from the registry exception tracker, with the same local filtering approach.
+- **Exceptions**: exceptions from the registry exception tracker, with the same local
+  filtering approach (Service, Instance, Type, Message). Instance is the 12-hex id.
   Also filtered by the session Group Select. The `context` payload is shown compactly.
 
   ![Exceptions tab](assets/exceptions.png)
@@ -86,6 +91,12 @@ The Header subtitle is the installed KontikiTUI version.
   `ServiceRegistry-*.log`, and non-Kontiki filenames are not opened.
 
   ![Logs tab](assets/logs.png)
+
+- **Silences**: monitor silences (`list_silences`), including names missing from
+  the registry. `s` clears the selected silence. Session Group Select: absent
+  names show as `business`. Mute is still posed from Services.
+
+  ![Silences tab](assets/silences.png)
 
 - **Settings**: edit `~/.config/kontiki_tui.yaml` (the app reloads configuration on save).
 

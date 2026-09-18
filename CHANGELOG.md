@@ -1,5 +1,17 @@
 # Changelog
 
+## [Unreleased]
+
+- Flows tab: AMQP chains grouped by `flow_id` (hops in chronological
+  order). Session Group lists flows that touch the group and still shows
+  the full chain. Events stays the flat journal. Census RPCs
+  (`get_services`, `list_instances`, tracker/silence/open-alert reads)
+  are hidden on Events and Flows.
+- Events, Exceptions, and Flows hops show the same 12-hex Instance as
+  Services. Field labels: Service, Instance.
+- Tab order: Services, Incidents, Flows, Events, Exceptions, Logs,
+  Silences, Settings.
+
 ## [1.4.0] - 2026-09-16
 
 - Require Kontiki `>=1.14.0` (registration `public` mapping).

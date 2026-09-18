@@ -8,6 +8,7 @@ from kontiki_tui.backend.services import (
     format_degraded_reason,
     format_last_heartbeat,
     implied_platform_group,
+    instance_id_filter_matches,
     matches_group_filter,
     normalize_registration_group,
 )
@@ -86,7 +87,7 @@ def test_implied_platform_group():
 
 
 def test_is_internal_registry_event(services):
-    # Hide observer + ServiceRegistry; keep domain events and RPC calls.
+    # Hide observer + ServiceRegistry + census RPCs; keep domain and other RPC.
     assert not services._is_internal_registry_event({"event_type": "_rpc_event"})
     assert not services._is_internal_registry_event(
         {"remote_method": "rpc_example", "service_name": "SvcA"}
@@ -96,9 +97,18 @@ def test_is_internal_registry_event(services):
     assert services._is_internal_registry_event(
         {"service_name": "kontiki_tui-standalone-x"}
     )
+    assert services._is_internal_registry_event(
+        {"remote_method": "get_services", "service_name": "kontiki-monitor"}
+    )
+    assert services._is_internal_registry_event(
+        {"remote_method": "list_open_alerts", "service_name": "kontiki-monitor"}
+    )
 
     assert not services._is_internal_registry_event(
         {"event_type": "simple_event", "service_name": "SvcA"}
+    )
+    assert not services._is_internal_registry_event(
+        {"event_type": "alert.normalized", "service_name": "kontiki-monitor"}
     )
     assert not services._is_internal_registry_event({"service_name": "kontiki"})
     assert not services._is_internal_registry_event({"service_name": "MyService"})
@@ -110,6 +120,7 @@ def test_filter_registry_events(services):
         {"event_type": "business", "service_name": "SvcA"},
         {"event_type": "business", "service_name": "ServiceRegistry"},
         {"event_type": "business", "service_name": "kontiki_tui"},
+        {"remote_method": "get_services", "service_name": "kontiki-monitor"},
         {"event_type": "business", "service_name": "SvcB"},
     ]
 
@@ -122,6 +133,16 @@ def test_filter_registry_events(services):
 
     kept_internal = services._filter_registry_events(events, include_internal=True)
     assert kept_internal == events
+
+
+def test_instance_id_filter_matches_short_and_full():
+    full = "aabbccddeeff001122334455"
+    assert instance_id_filter_matches(full, "aabbccdd")
+    assert instance_id_filter_matches(full, "001122334455")
+    assert instance_id_filter_matches(full, "AABB")
+    assert instance_id_filter_matches(full, "")
+    assert not instance_id_filter_matches(full, "zzzz")
+    assert not instance_id_filter_matches("", "aabb")
 
 
 def test_format_last_heartbeat():
@@ -148,6 +169,8 @@ def test_get_events_filters_observer_and_registry_noise(services):
         {"event_type": "business", "service_name": "SvcA"},
         {"event_type": "business", "service_name": "ServiceRegistry"},
         {"event_type": "business", "service_name": "kontiki_tui"},
+        {"remote_method": "get_services", "service_name": "kontiki-monitor"},
+        {"event_type": "alert.normalized", "service_name": "kontiki-monitor"},
         {"event_type": "business", "service_name": "SvcB"},
     ]
 
@@ -156,6 +179,7 @@ def test_get_events_filters_observer_and_registry_noise(services):
     assert out == [
         {"remote_method": "rpc_example", "service_name": "SvcA"},
         {"event_type": "business", "service_name": "SvcA"},
+        {"event_type": "alert.normalized", "service_name": "kontiki-monitor"},
         {"event_type": "business", "service_name": "SvcB"},
     ]
 

@@ -2,11 +2,13 @@ import json
 import logging
 from datetime import datetime
 
+from kontiki.messaging.flow import short_instance_id
 from textual import on
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.widgets import DataTable, Input, Label, Select, Static
 
+from kontiki_tui.backend.services import instance_id_filter_matches
 from kontiki_tui.components.group_filter import (
     GROUP_FILTER_SELECT_CLASS,
     GroupFilterChanged,
@@ -32,8 +34,8 @@ class ExceptionsTab(Static):
         self._exceptions_cache = []
         self.field_options = [
             ("All", "all"),
-            ("Service Name", "service_name"),
-            ("Instance ID", "instance_id"),
+            ("Service", "service_name"),
+            ("Instance", "instance_id"),
             ("Exception Type", "exception_type"),
             ("Message", "message"),
         ]
@@ -173,8 +175,9 @@ class ExceptionsTab(Static):
             expected = value.lower()
 
             def match(exc: dict) -> bool:
-                candidate = exc.get(field, "")
-                return expected in str(candidate).lower()
+                if field == "instance_id":
+                    return instance_id_filter_matches(exc.get("instance_id"), expected)
+                return expected in str(exc.get(field, "")).lower()
 
             filtered = [exc for exc in rows if match(exc)]
 
@@ -197,7 +200,7 @@ class ExceptionsTab(Static):
                 (
                     self._format_time(str(exc.get("timestamp", "") or "")),
                     str(exc.get("service_name", "")),
-                    str(exc.get("instance_id", "")),
+                    short_instance_id(str(exc.get("instance_id") or "")),
                     str(exc.get("exception_type", "")),
                     str(exc.get("message", "")),
                     self._format_context(exc.get("context")),

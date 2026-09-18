@@ -14,6 +14,7 @@ from kontiki_tui.backend.log import get_log, is_lnav_available
 from kontiki_tui.backend.services import Services
 from kontiki_tui.components.events import EventsTab
 from kontiki_tui.components.exceptions import ExceptionsTab
+from kontiki_tui.components.flows import FlowsTab
 from kontiki_tui.components.group_filter import (
     GroupFilterChanged,
     current_group_filter,
@@ -285,14 +286,11 @@ class KontikiTuiApp(App):
             self.run_worker(incidents_tab.update_table())
             if incidents_tab.incidents_table is not None:
                 incidents_tab.incidents_table.focus()
-        elif tab_label == "Silences":
-            silences_tab = self.query_one("#silences", SilencesTab)
-            self.run_worker(silences_tab.update_table())
-            if silences_tab.silences_table is not None:
-                silences_tab.silences_table.focus()
-        elif tab_label == "Logs":
-            log_tab = self.query_one("#log", LogTab)
-            self.run_worker(self._refresh_logs_tab(log_tab))
+        elif tab_label == "Flows":
+            flows_tab = self.query_one("#flows", FlowsTab)
+            self.run_worker(flows_tab.update_table())
+            if flows_tab.flows_table is not None:
+                flows_tab.flows_table.focus()
         elif tab_label == "Events":
             events_tab = self.query_one("#events", EventsTab)
             self.run_worker(events_tab.update_table())
@@ -303,6 +301,14 @@ class KontikiTuiApp(App):
             self.run_worker(exceptions_tab.update_table())
             if exceptions_tab.exceptions_table is not None:
                 exceptions_tab.exceptions_table.focus()
+        elif tab_label == "Logs":
+            log_tab = self.query_one("#log", LogTab)
+            self.run_worker(self._refresh_logs_tab(log_tab))
+        elif tab_label == "Silences":
+            silences_tab = self.query_one("#silences", SilencesTab)
+            self.run_worker(silences_tab.update_table())
+            if silences_tab.silences_table is not None:
+                silences_tab.silences_table.focus()
 
     async def _refresh_logs_tab(self, log_tab: LogTab) -> None:
         await log_tab.prepare_group_filter_options()
@@ -322,14 +328,16 @@ class KontikiTuiApp(App):
             self.run_worker(self.query_one("#services", ServicesTab).update_table())
         elif pane.query(IncidentsTab):
             self.run_worker(self.query_one("#incidents", IncidentsTab).update_table())
-        elif pane.query(SilencesTab):
-            self.run_worker(self.query_one("#silences", SilencesTab).update_table())
+        elif pane.query(FlowsTab):
+            self.run_worker(self.query_one("#flows", FlowsTab).update_table())
         elif pane.query(EventsTab):
             self.run_worker(self.query_one("#events", EventsTab).update_table())
         elif pane.query(ExceptionsTab):
             self.run_worker(self.query_one("#exceptions", ExceptionsTab).update_table())
         elif pane.query(LogTab):
             self.run_worker(self._refresh_logs_tab(self.query_one("#log", LogTab)))
+        elif pane.query(SilencesTab):
+            self.run_worker(self.query_one("#silences", SilencesTab).update_table())
 
     @on(GroupFilterChanged)
     async def on_group_filter_changed(self, event: GroupFilterChanged) -> None:
