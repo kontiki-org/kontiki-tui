@@ -170,7 +170,9 @@ class EventsTab(Static):
                     candidate = self._event_type_label(event)
                     return expected in candidate.lower()
                 if field == "instance_id":
-                    return instance_id_filter_matches(event.get("instance_id"), expected)
+                    return instance_id_filter_matches(
+                        event.get("instance_id"), expected
+                    )
                 return expected in str(event.get(field, "")).lower()
 
             filtered = [event for event in events if match(event)]

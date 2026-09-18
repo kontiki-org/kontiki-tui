@@ -50,9 +50,7 @@ class ConfirmPrompt(Static):
                 "ConfirmPrompt: no target for action=%s", self._action
             )
             return
-        self._target.post_message(
-            self.Result(confirmed, self._action, self._payload)
-        )
+        self._target.post_message(self.Result(confirmed, self._action, self._payload))
 
 
 class Prompt(Static):

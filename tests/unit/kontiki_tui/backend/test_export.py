@@ -27,9 +27,10 @@ def test_export_directory_uses_conf():
 def test_export_directory_falls_back_to_base_conf():
     assert export_directory({}) == BASE_CONF["export"]["directory"]
     assert export_directory({"export": {}}) == BASE_CONF["export"]["directory"]
-    assert export_directory({"export": {"directory": "  "}}) == BASE_CONF["export"][
-        "directory"
-    ]
+    assert (
+        export_directory({"export": {"directory": "  "}})
+        == BASE_CONF["export"]["directory"]
+    )
 
 
 def test_sanitize_filename_part():
