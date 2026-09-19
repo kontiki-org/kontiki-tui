@@ -1,7 +1,7 @@
 # KontikiTUI
 
-> **Part of the Kontiki suite** — a compact open-source stack for startups and
-> small teams that need ops without the heavy stack.
+> **Part of the Kontiki suite** — Python runtime, registry, terminal UI, and
+> fleet monitoring for distributed services.
 >
 > Full suite overview → https://kontiki-org.github.io/
 >
@@ -11,22 +11,12 @@
 ## Overview
 
 **KontikiTUI** is a terminal UI for a [Kontiki](https://github.com/kontiki-org/kontiki)
-fleet: one SSH entry point for registry census, open ops alerts, flows,
+fleet: one SSH entry point for registry census, open ops alerts, flow trees,
 events, exceptions, logs, and silences.
 
 It is built with [Textual](https://textual.textualize.io/). A session **Group**
 Select slices every monitoring tab the same way (`all` plus groups discovered
 in the registry).
-
-- **Services** — registered instances (status, heartbeat, host/pid, versions,
-  mute).
-- **Incidents** — open alerts from `kontiki-monitor` and `host-check-service`.
-- **Flows** / **Events** / **Exceptions** — registry trackers (chains by
-  `flow_id`, flat journal, exceptions).
-- **Logs** — log files of instances currently in the registry.
-- **Silences** — persisted monitor mutes, including names no longer registered.
-
-The Header subtitle is the installed KontikiTUI version.
 
 ---
 
@@ -52,7 +42,7 @@ Instance ids are the Kontiki 12-hex short id. `r` refreshes the active tab.
 
   ![Flows tab](assets/flows.png)
 
-- **Events**: flat journal of publishes and RPC calls.
+- **Events**: publishes and RPC calls in time order.
 
   ![Events tab](assets/events.png)
 
