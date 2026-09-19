@@ -133,7 +133,7 @@ def render_exception(exc):
     return "\n".join(lines)
 
 
-def render_flow(flow):
+def render_flow(flow, log_lines=None):
     flow_id = str(flow.get("flow_id") or "").strip()
     hops = flow.get("hops") or []
     tree_rows = flow.get("tree_rows")
@@ -169,7 +169,34 @@ def render_flow(flow):
             )
         lines.extend(_markdown_table(_HOP_EXPORT_HEADERS, table_rows))
     lines.append("")
+    if log_lines is not None:
+        lines.append("## Logs")
+        lines.append("")
+        if not log_lines:
+            lines.append("—")
+        else:
+            lines.append("```")
+            lines.extend(log_lines)
+            lines.append("```")
+        lines.append("")
     return "\n".join(lines)
+
+
+def flow_log_instance_keys(flow):
+    keys = []
+    seen = set()
+    rows = flow.get("tree_rows")
+    if rows is None:
+        rows = flow.get("hops") or []
+    for row in rows:
+        service_name = str(row.get("service_name") or "").strip()
+        instance_id = str(row.get("instance_id") or "").strip()
+        pair = (service_name, instance_id)
+        if not service_name or not instance_id or pair in seen:
+            continue
+        seen.add(pair)
+        keys.append(pair)
+    return keys
 
 
 def render_incident(alert):

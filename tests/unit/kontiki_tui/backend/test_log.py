@@ -175,3 +175,83 @@ def test_get_log_passes_log_files_to_lnav():
         called_cmd = run.call_args[0][0]
         assert "logs/OrderSvc-aabbccddeeff.log" in called_cmd
         assert "logs" not in [arg for arg in called_cmd if arg == "logs"]
+
+
+def test_instance_log_files_numeric_rotations_oldest_first(tmp_logs_dir: Path):
+    stem = "OrderSvc-aabbccddeeff"
+    (tmp_logs_dir / ("%s.log" % stem)).write_text("cur\n", encoding="utf-8")
+    (tmp_logs_dir / ("%s.log.1" % stem)).write_text("r1\n", encoding="utf-8")
+    (tmp_logs_dir / ("%s.log.2" % stem)).write_text("r2\n", encoding="utf-8")
+    (tmp_logs_dir / ("%s.log.2026-09-19" % stem)).write_text(
+        "dated\n", encoding="utf-8"
+    )
+    (tmp_logs_dir / "OtherSvc-ffffffffffff.log.1").write_text(
+        "nope\n", encoding="utf-8"
+    )
+    paths = log_backend.instance_log_files(
+        str(tmp_logs_dir),
+        "OrderSvc",
+        "aabbccddeeff-0000-0000-0000-000000000000",
+    )
+    names = [Path(path).name for path in paths]
+    assert names == [
+        "%s.log.2" % stem,
+        "%s.log.1" % stem,
+        "%s.log" % stem,
+    ]
+
+
+def test_collect_flow_log_excerpt_filters_and_caps(tmp_logs_dir: Path):
+    uuid = "aabbccddeeff-0000-0000-0000-000000000000"
+    current = tmp_logs_dir / "OrderSvc-aabbccddeeff.log"
+    rotated = tmp_logs_dir / "OrderSvc-aabbccddeeff.log.1"
+    rotated.write_text(
+        "[flow=deadbeef0000] old other\n[flow=a1b2c3d4e5f6] from rotated\n",
+        encoding="utf-8",
+    )
+    current.write_text(
+        "no flow here\n[flow=a1b2c3d4e5f6] from current\n[flow=a1b2c3d4e5f6] latest\n",
+        encoding="utf-8",
+    )
+    lines = log_backend.collect_flow_log_excerpt(
+        str(tmp_logs_dir),
+        "a1b2c3d4e5f6",
+        [("OrderSvc", uuid)],
+        max_lines=2,
+    )
+    assert lines == [
+        "[flow=a1b2c3d4e5f6] from current",
+        "[flow=a1b2c3d4e5f6] latest",
+    ]
+
+
+def test_collect_flow_log_excerpt_keeps_traceback(tmp_logs_dir: Path):
+    uuid = "aabbccddeeff-0000-0000-0000-000000000000"
+    (tmp_logs_dir / "OrderSvc-aabbccddeeff.log").write_text(
+        "\n".join(
+            [
+                "2026-09-19 11:40:10,123 [flow=a1b2c3d4e5f6] Uncaught in rpc_example",
+                "Traceback (most recent call last):",
+                '  File "rpc_service.py", line 42, in rpc_example',
+                '    raise RuntimeError("Unexpected Server error")',
+                "RuntimeError: Unexpected Server error",
+                "2026-09-19 11:40:10,200 INFO other line without this flow",
+                "2026-09-19 11:40:10,300 [flow=deadbeef0000] other flow",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    lines = log_backend.collect_flow_log_excerpt(
+        str(tmp_logs_dir),
+        "a1b2c3d4e5f6",
+        [("OrderSvc", uuid)],
+        max_lines=20,
+    )
+    assert lines == [
+        "2026-09-19 11:40:10,123 [flow=a1b2c3d4e5f6] Uncaught in rpc_example",
+        "Traceback (most recent call last):",
+        '  File "rpc_service.py", line 42, in rpc_example',
+        '    raise RuntimeError("Unexpected Server error")',
+        "RuntimeError: Unexpected Server error",
+    ]

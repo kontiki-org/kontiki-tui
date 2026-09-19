@@ -11,7 +11,11 @@
   long labels stay fully visible when switching flows.
 - Flow Markdown export: Messages is a table (Time, Group, Service,
   Instance, Type, Host). Type repeats `↪️` by depth (`↪️↪️ …`) so
-  nesting survives GFM. Empty hops stay `—`.
+  nesting survives GFM. Empty hops stay `—`. Logs section is the last
+  `[flow={id}]` lines from those instances' files (`logs.directory`,
+  including `.log.N`), plus traceback lines until the next log record.
+- Logs tab (and flow export) reads numeric RotatingFileHandler backups
+  (`{service}-{12hex}.log.N`), oldest first then the current file.
 - Example `simple_example` gives each publish its own `flow_id`.
   `SimpleEventService` calls `RpcService.rpc_example` on `simple_event` ;
   `standard_case` publishes `chain.b`, then `chain.c` (depth 3).

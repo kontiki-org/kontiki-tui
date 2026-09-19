@@ -3,7 +3,6 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock, Mock
 
 import pytest
-
 from kontiki.messaging.common import KONTIKI_SESSION_OPEN_RPC
 
 from kontiki_tui.backend.services import (
@@ -14,12 +13,12 @@ from kontiki_tui.backend.services import (
     build_flows,
     event_type_label,
     exception_type_label,
+    export_tree_type_label,
     flatten_flow_tree,
     format_flow_index_time,
     format_hop_time,
     format_parent_delta,
     group_for_event,
-    export_tree_type_label,
     tree_row_type_label,
     tree_type_prefix,
 )
@@ -54,9 +53,10 @@ def _registry():
 def test_event_type_label_event_and_rpc():
     assert event_type_label({"event_type": "order.placed"}) == "order.placed"
     assert event_type_label({"remote_method": "charge"}) == "rpc:charge"
-    assert event_type_label(
-        {"remote_method": "charge", "rpc_service": "Billing"}
-    ) == "rpc:Billing.charge"
+    assert (
+        event_type_label({"remote_method": "charge", "rpc_service": "Billing"})
+        == "rpc:Billing.charge"
+    )
     assert event_type_label({"event_type": "x", "remote_method": "y"}) == "x"
     assert event_type_label({}) == ""
 
@@ -249,10 +249,12 @@ def test_get_flows_hides_internal_and_uses_unfiltered_events(services):
 
 
 def test_exception_type_label():
-    assert exception_type_label({"exception_type": "ValueError", "message": "boom"}) == (
-        "exc:ValueError: boom"
+    assert exception_type_label(
+        {"exception_type": "ValueError", "message": "boom"}
+    ) == ("exc:ValueError: boom")
+    assert (
+        exception_type_label({"exception_type": "RuntimeError"}) == "exc:RuntimeError"
     )
-    assert exception_type_label({"exception_type": "RuntimeError"}) == "exc:RuntimeError"
     assert exception_type_label({}) == "exc:Exception"
 
 

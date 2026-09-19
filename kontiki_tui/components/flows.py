@@ -8,7 +8,8 @@ from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.widgets import DataTable, Input, Label, Select, Static
 
-from kontiki_tui.backend.export import flow_stem, render_flow
+from kontiki_tui.backend.export import flow_log_instance_keys, flow_stem, render_flow
+from kontiki_tui.backend.log import collect_flow_log_excerpt
 from kontiki_tui.backend.services import (
     KIND_EXCEPTION,
     apply_flow_field_filter,
@@ -29,6 +30,7 @@ from kontiki_tui.components.markdown_export import (
     request_markdown_export,
 )
 from kontiki_tui.components.prompt import ConfirmPrompt
+from kontiki_tui.config import BASE_CONF
 
 _FIELD_OPTIONS = [
     ("All", "all"),
@@ -172,8 +174,24 @@ class FlowsTab(Static):
             self._selected_flow(),
             "No flow selected",
             flow_stem,
-            render_flow,
+            self._render_flow_export,
         )
+
+    def _render_flow_export(self, flow):
+        logs_conf = (self.app.conf or {}).get("logs") or {}
+        directory = logs_conf.get("directory")
+        if directory is None or not str(directory).strip():
+            directory = BASE_CONF.get("logs", {}).get("directory")
+        max_lines = logs_conf.get("max-lines")
+        if max_lines is None:
+            max_lines = BASE_CONF.get("logs", {}).get("max-lines")
+        excerpt = collect_flow_log_excerpt(
+            directory,
+            flow.get("flow_id"),
+            flow_log_instance_keys(flow),
+            max_lines,
+        )
+        return render_flow(flow, excerpt)
 
     @on(ConfirmPrompt.Result)
     def on_confirm_prompt_result(self, event):
