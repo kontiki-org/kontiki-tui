@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-09-19
+
 - Require Kontiki `>=1.16.0` (`hop_id` / `parent_hop_id` / `rpc_service` on
   bus emissions; `hop_id` / `exception_id` on exception records).
 - Flows tree: Type prefix `↪️  [+12ms]` (child hop) / `💥` (exception),
