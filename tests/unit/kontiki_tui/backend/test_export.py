@@ -126,7 +126,7 @@ def test_render_flow_hops():
     assert text.startswith("# Flow a1b2c3d4e5f6\n")
     assert "- Origin: OrderApi\n" in text
     assert "- First: order.placed\n" in text
-    assert "- Hops: 2\n" in text
+    assert "- Messages: 2\n" in text
     assert (
         "- 09:14:01.12 · business · OrderApi · 111111112222 · order.placed · box-1\n"
         in text
@@ -137,9 +137,49 @@ def test_render_flow_hops():
     )
 
 
+def test_render_flow_tree_exception_omits_clock():
+    text = render_flow(
+        {
+            "flow_id": "a1b2c3d4e5f6",
+            "origin": "OrderApi",
+            "first_type": "order.placed",
+            "hops": [{}],
+            "tree_rows": [
+                {
+                    "_kind": "message",
+                    "_depth": 0,
+                    "_delta": "—",
+                    "_group": "business",
+                    "timestamp": "2026-09-18T09:14:01.120000+00:00",
+                    "service_name": "OrderApi",
+                    "instance_id": "11111111-2222-3333-4444-555555555555",
+                    "event_type": "order.placed",
+                    "host": "box-1",
+                },
+                {
+                    "_kind": "exception",
+                    "_depth": 1,
+                    "_delta": "—",
+                    "_group": "business",
+                    "timestamp": "2026-09-18T09:14:01.200000+00:00",
+                    "service_name": "Notify",
+                    "instance_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                    "exception_type": "ValueError",
+                    "message": "boom",
+                    "host": "box-2",
+                },
+            ],
+        }
+    )
+    assert "- Messages: 1\n" in text
+    assert (
+        "  💥 exc:ValueError: boom · box-2\n"
+    ) in text
+
+
 def test_render_flow_empty_hops():
     text = render_flow({"flow_id": "deadbeef0000", "hops": []})
-    assert "## Hops\n\n—\n" in text
+    assert "## Messages\n\n—\n" in text
 
 
 def test_render_incident_drops_producer_keys():

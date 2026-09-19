@@ -1,18 +1,25 @@
 import asyncio
 
 from kontiki.messaging import Messenger
+from kontiki.messaging.flow import generate_flow_id
 
 
 async def main():
     amqp_url = "amqp://guest:guest@localhost"
     async with Messenger(amqp_url=amqp_url, standalone=True) as messenger:
         print("Publishing simple_event...")
-        await messenger.publish("simple_event", {"message": "Hello from simple event"})
+        await messenger.publish(
+            "simple_event",
+            {"message": "Hello from simple event"},
+            flow_id=generate_flow_id(),
+        )
         print("simple_event published.")
 
         print("Publishing dynamic_event_name...")
         await messenger.publish(
-            "dynamic_event_name", {"message": "Hello from dynamic event name"}
+            "dynamic_event_name",
+            {"message": "Hello from dynamic event name"},
+            flow_id=generate_flow_id(),
         )
         print("dynamic_event_name published.")
 
@@ -23,6 +30,7 @@ async def main():
         await messenger.publish(
             "retry_then_reject_event",
             {"message": "This will be requeued first, then rejected on redelivery"},
+            flow_id=generate_flow_id(),
         )
         print("retry_then_reject_event published.")
 

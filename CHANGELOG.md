@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+- Require Kontiki `>=1.16.0` (`hop_id` / `parent_hop_id` / `rpc_service` on
+  bus emissions; `hop_id` / `exception_id` on exception records).
+- Flows tree: Type prefix `↪️  [+12ms]` (child hop) / `💥` (exception),
+  indent by depth. No Δ column. Roots unmarked. Exception rows in red,
+  without Time, after the hop's message children.
+- Flows hops: column widths follow cell content (Type included), so
+  long labels stay fully visible when switching flows.
+- Example `simple_example` gives each publish its own `flow_id`.
+  `SimpleEventService` calls `RpcService.rpc_example` on `simple_event` ;
+  `standard_case` publishes `chain.b`, then `chain.c` (depth 3).
+  `make run-simple-event-example`.
+
 ## [1.5.0] - 2026-09-18
 
 - Require Kontiki `>=1.15.0` (exception record: `flow_id`, `entrypoint`,

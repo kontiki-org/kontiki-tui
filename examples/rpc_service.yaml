@@ -1,4 +1,4 @@
 kontiki:
   registration:
     # Non-business group so Group Select "all" / "platform" can be exercised locally.
-    group: platform
+    group: business

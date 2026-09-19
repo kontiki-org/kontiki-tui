@@ -1,6 +1,8 @@
 import logging
 
 from kontiki.messaging.flow import short_instance_id
+from rich.cells import cell_len
+from rich.text import Text
 from textual import on
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
@@ -8,10 +10,11 @@ from textual.widgets import DataTable, Input, Label, Select, Static
 
 from kontiki_tui.backend.export import flow_stem, render_flow
 from kontiki_tui.backend.services import (
+    KIND_EXCEPTION,
     apply_flow_field_filter,
-    event_type_label,
     format_flow_index_time,
     format_hop_time,
+    tree_row_type_label,
 )
 from kontiki_tui.components.group_filter import (
     GROUP_FILTER_SELECT_CLASS,
@@ -40,7 +43,7 @@ _FLOW_HEADERS = (
     "Flow Id",
     "Started",
     "Last",
-    "Hops",
+    "Messages",
     "Origin",
     "First",
 )
@@ -71,6 +74,7 @@ class FlowsTab(Static):
         self.group_filter_select = None
         self._flows_cache = []
         self._selected_flow_id = None
+        self._hops_shown_id = None
         self.row_data_map = {}
 
     def compose(self):
@@ -106,7 +110,8 @@ class FlowsTab(Static):
                 classes="datatables",
                 cursor_type="row",
             )
-            hops_table.border_title = "Hops"
+            hops_table.border_title = "Messages"
+            hops_table.show_row_labels = False
             self.hops_table = hops_table
             yield hops_table
 
@@ -189,19 +194,37 @@ class FlowsTab(Static):
             str(flow.get("first_type", "") or ""),
         )
 
-    def _hop_row_tuple(self, hop):
+    def _hop_row_tuple(self, row):
+        is_exc = row.get("_kind") == KIND_EXCEPTION
+        type_label = tree_row_type_label(row)
         return (
-            format_hop_time(hop.get("timestamp")),
-            str(hop.get("_group", "") or ""),
-            str(hop.get("service_name", "") or ""),
-            short_instance_id(str(hop.get("instance_id") or "")),
-            event_type_label(hop),
-            str(hop.get("host", "") or ""),
+            "—" if is_exc else format_hop_time(row.get("timestamp")),
+            str(row.get("_group", "") or ""),
+            str(row.get("service_name", "") or ""),
+            short_instance_id(str(row.get("instance_id") or "")),
+            Text(type_label, style="red") if is_exc else type_label,
+            str(row.get("host", "") or ""),
         )
 
     def _ensure_columns(self, table, headers):
         if len(table.columns) == 0:
             table.add_columns(*headers)
+
+    def _fit_hops_columns(self, rows):
+        columns = self.hops_table.ordered_columns
+        widths = [cell_len(header) for header in _HOP_HEADERS]
+        for row in rows:
+            for index, cell in enumerate(row):
+                if isinstance(cell, Text):
+                    width = cell.cell_len
+                else:
+                    width = cell_len(str(cell))
+                if width > widths[index]:
+                    widths[index] = width
+        for column, width in zip(columns, widths):
+            column.auto_width = False
+            column.width = width
+            column.content_width = width
 
     def _selected_flow(self):
         if self.flows_table is None:
@@ -230,19 +253,25 @@ class FlowsTab(Static):
     def _render_hops(self, flow):
         if self.hops_table is None:
             return
-        self._ensure_columns(self.hops_table, _HOP_HEADERS)
         if flow is None:
-            self.hops_table.border_title = "Hops"
-            self.hops_table.clear()
-            self.hops_table.refresh()
-            return
-        flow_id = str(flow.get("flow_id", "") or "")
-        self.hops_table.border_title = flow_id or "Hops"
-        rows = [self._hop_row_tuple(hop) for hop in flow.get("hops") or []]
+            self.hops_table.border_title = "Messages"
+            tree_rows = []
+            shown_id = None
+        else:
+            flow_id = str(flow.get("flow_id", "") or "")
+            self.hops_table.border_title = flow_id or "Messages"
+            tree_rows = flow.get("tree_rows")
+            if tree_rows is None:
+                tree_rows = flow.get("hops") or []
+            shown_id = flow_id or None
+        rows = [self._hop_row_tuple(row) for row in tree_rows]
+        self._ensure_columns(self.hops_table, _HOP_HEADERS)
+        self._fit_hops_columns(rows)
         self.hops_table.clear()
         if rows:
             self.hops_table.add_rows(rows)
-        self.hops_table.refresh()
+        self.hops_table.refresh(layout=True)
+        self._hops_shown_id = shown_id
 
     def _render_from_cache(self):
         if self.flows_table is None:
@@ -289,4 +318,7 @@ class FlowsTab(Static):
         flow = self._selected_flow()
         if flow is not None:
             self._selected_flow_id = flow.get("flow_id")
+        shown = None if flow is None else str(flow.get("flow_id") or "") or None
+        if shown == self._hops_shown_id:
+            return
         self._render_hops(flow)

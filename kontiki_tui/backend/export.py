@@ -6,12 +6,13 @@ from pathlib import Path
 from kontiki.messaging.flow import short_instance_id
 
 from kontiki_tui.backend.services import (
+    KIND_EXCEPTION,
     display_alert_dict,
-    event_type_label,
     format_flow_index_time,
     format_hop_time,
     format_last_heartbeat,
     incident_host_display,
+    tree_row_type_label,
 )
 from kontiki_tui.config import BASE_CONF
 
@@ -107,6 +108,9 @@ def render_exception(exc):
 def render_flow(flow):
     flow_id = str(flow.get("flow_id") or "").strip()
     hops = flow.get("hops") or []
+    tree_rows = flow.get("tree_rows")
+    if tree_rows is None:
+        tree_rows = hops
     lines = [
         "# Flow %s" % (flow_id or "—"),
         "",
@@ -114,22 +118,23 @@ def render_flow(flow):
         _field("Last", format_flow_index_time(flow.get("last"))),
         _field("Origin", flow.get("origin")),
         _field("First", flow.get("first_type")),
-        _field("Hops", len(hops)),
+        _field("Messages", len(hops)),
         "",
-        "## Hops",
+        "## Messages",
         "",
     ]
-    if not hops:
+    if not tree_rows:
         lines.append("—")
     else:
-        for hop in hops:
+        for row in tree_rows:
+            is_exc = row.get("_kind") == KIND_EXCEPTION
             parts = [
-                format_hop_time(hop.get("timestamp")) or "—",
-                str(hop.get("_group") or "").strip() or "—",
-                str(hop.get("service_name") or "").strip() or "—",
-                short_instance_id(str(hop.get("instance_id") or "")) or "—",
-                event_type_label(hop) or "—",
-                str(hop.get("host") or "").strip() or "—",
+                "—" if is_exc else (format_hop_time(row.get("timestamp")) or "—"),
+                str(row.get("_group") or "").strip() or "—",
+                str(row.get("service_name") or "").strip() or "—",
+                short_instance_id(str(row.get("instance_id") or "")) or "—",
+                tree_row_type_label(row) or "—",
+                str(row.get("host") or "").strip() or "—",
             ]
             lines.append("- " + " · ".join(parts))
     lines.append("")
