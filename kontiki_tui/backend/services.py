@@ -132,6 +132,25 @@ def tree_row_type_label(row):
     )
 
 
+def export_tree_type_label(row):
+    """Type label for Markdown tables: repeat ↪️ by depth (spaces collapse in GFM)."""
+    if row.get("_kind") == KIND_EXCEPTION:
+        base = exception_type_label(row)
+    else:
+        base = event_type_label(row)
+    depth = int(row.get("_depth") or 0)
+    if not depth:
+        return base
+    if row.get("_kind") == KIND_EXCEPTION:
+        marks = TREE_CHILD_MARK * (depth - 1) + TREE_EXCEPTION_MARK
+        return "%s %s" % (marks, base)
+    marks = TREE_CHILD_MARK * depth
+    text = str(row.get("_delta") or "").strip()
+    if text and text != "—":
+        return "%s  [%s] %s" % (marks, text, base)
+    return "%s %s" % (marks, base)
+
+
 def event_timestamp_sort_key(event):
     timestamp = str(event.get("timestamp", "") or "").strip()
     if not timestamp:

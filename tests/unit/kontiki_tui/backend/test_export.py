@@ -128,11 +128,16 @@ def test_render_flow_hops():
     assert "- First: order.placed\n" in text
     assert "- Messages: 2\n" in text
     assert (
-        "- 09:14:01.12 · business · OrderApi · 111111112222 · order.placed · box-1\n"
+        "| Time | Group | Service | Instance | Type | Host |\n"
+        "| --- | --- | --- | --- | --- | --- |\n"
         in text
     )
     assert (
-        "- 09:14:01.40 · platform · Billing · bbbbbbbbcccc · rpc:charge · box-2\n"
+        "| 09:14:01.12 | business | OrderApi | 111111112222 | order.placed | box-1 |\n"
+        in text
+    )
+    assert (
+        "| 09:14:01.40 | platform | Billing | bbbbbbbbcccc | rpc:charge | box-2 |\n"
         in text
     )
 
@@ -157,6 +162,17 @@ def test_render_flow_tree_exception_omits_clock():
                     "host": "box-1",
                 },
                 {
+                    "_kind": "message",
+                    "_depth": 2,
+                    "_delta": "+1ms",
+                    "_group": "business",
+                    "timestamp": "2026-09-18T09:14:01.160000+00:00",
+                    "service_name": "Notify",
+                    "instance_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                    "event_type": "chain.c",
+                    "host": "box-2",
+                },
+                {
                     "_kind": "exception",
                     "_depth": 1,
                     "_delta": "—",
@@ -165,7 +181,7 @@ def test_render_flow_tree_exception_omits_clock():
                     "service_name": "Notify",
                     "instance_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
                     "exception_type": "ValueError",
-                    "message": "boom",
+                    "message": "boom | extra",
                     "host": "box-2",
                 },
             ],
@@ -173,7 +189,12 @@ def test_render_flow_tree_exception_omits_clock():
     )
     assert "- Messages: 1\n" in text
     assert (
-        "  💥 exc:ValueError: boom · box-2\n"
+        "| 09:14:01.16 | business | Notify | aaaaaaaabbbb |"
+        " ↪️↪️  [+1ms] chain.c | box-2 |\n"
+    ) in text
+    assert (
+        "| — | business | Notify | aaaaaaaabbbb |"
+        " 💥 exc:ValueError: boom \\| extra | box-2 |\n"
     ) in text
 
 

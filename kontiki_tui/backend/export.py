@@ -8,11 +8,11 @@ from kontiki.messaging.flow import short_instance_id
 from kontiki_tui.backend.services import (
     KIND_EXCEPTION,
     display_alert_dict,
+    export_tree_type_label,
     format_flow_index_time,
     format_hop_time,
     format_last_heartbeat,
     incident_host_display,
-    tree_row_type_label,
 )
 from kontiki_tui.config import BASE_CONF
 
@@ -82,6 +82,34 @@ def _field(label, value):
     return "- %s: %s" % (label, text)
 
 
+_HOP_EXPORT_HEADERS = (
+    "Time",
+    "Group",
+    "Service",
+    "Instance",
+    "Type",
+    "Host",
+)
+
+
+def _markdown_cell(value):
+    text = str(value or "").replace("\r\n", "\n").replace("\r", "\n")
+    text = " ".join(text.splitlines()).rstrip()
+    if not text.strip():
+        text = "—"
+    return text.replace("|", "\\|")
+
+
+def _markdown_table(headers, rows):
+    lines = [
+        "| %s |" % " | ".join(headers),
+        "| %s |" % " | ".join("---" for _ in headers),
+    ]
+    for row in rows:
+        lines.append("| %s |" % " | ".join(_markdown_cell(cell) for cell in row))
+    return lines
+
+
 def render_exception(exc):
     service = str(exc.get("service_name") or "").strip()
     instance = short_instance_id(str(exc.get("instance_id") or ""))
@@ -126,17 +154,20 @@ def render_flow(flow):
     if not tree_rows:
         lines.append("—")
     else:
+        table_rows = []
         for row in tree_rows:
             is_exc = row.get("_kind") == KIND_EXCEPTION
-            parts = [
-                "—" if is_exc else (format_hop_time(row.get("timestamp")) or "—"),
-                str(row.get("_group") or "").strip() or "—",
-                str(row.get("service_name") or "").strip() or "—",
-                short_instance_id(str(row.get("instance_id") or "")) or "—",
-                tree_row_type_label(row) or "—",
-                str(row.get("host") or "").strip() or "—",
-            ]
-            lines.append("- " + " · ".join(parts))
+            table_rows.append(
+                (
+                    "—" if is_exc else (format_hop_time(row.get("timestamp")) or "—"),
+                    str(row.get("_group") or "").strip() or "—",
+                    str(row.get("service_name") or "").strip() or "—",
+                    short_instance_id(str(row.get("instance_id") or "")) or "—",
+                    export_tree_type_label(row) or "—",
+                    str(row.get("host") or "").strip() or "—",
+                )
+            )
+        lines.extend(_markdown_table(_HOP_EXPORT_HEADERS, table_rows))
     lines.append("")
     return "\n".join(lines)
 

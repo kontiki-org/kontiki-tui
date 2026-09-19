@@ -71,7 +71,8 @@ The Header subtitle is the installed KontikiTUI version.
   least one hop's emitter is in the selected Group.
   Events without `flow_id` stay on Events only. Same census-RPC hide as
   Events. `e` confirms the file path then writes a Markdown export of the
-  selected flow (messages included) to `export.directory`.
+  selected flow (Messages table; Type repeats `↪️` by depth) to
+  `export.directory`.
   Requires Kontiki ≥1.16.0.
 
 - **Events**: events tracked by the registry, with local filters (`Field`/`Value`/`Limit`:

@@ -19,6 +19,7 @@ from kontiki_tui.backend.services import (
     format_hop_time,
     format_parent_delta,
     group_for_event,
+    export_tree_type_label,
     tree_row_type_label,
     tree_type_prefix,
 )
@@ -272,6 +273,36 @@ def test_tree_type_prefix():
     assert tree_type_prefix(1, KIND_MESSAGE, "—") == "  ↪️ "
     assert tree_type_prefix(2, KIND_MESSAGE, "+1ms") == "    ↪️  [+1ms] "
     assert tree_type_prefix(1, KIND_EXCEPTION, "+4ms") == "  💥 "
+
+
+def test_export_tree_type_label_repeats_marks():
+    root = {
+        "_kind": KIND_MESSAGE,
+        "_depth": 0,
+        "event_type": "order.placed",
+    }
+    child = {
+        "_kind": KIND_MESSAGE,
+        "_depth": 1,
+        "_delta": "+12ms",
+        "event_type": "chain.b",
+    }
+    grandchild = {
+        "_kind": KIND_MESSAGE,
+        "_depth": 2,
+        "_delta": "+1ms",
+        "event_type": "chain.c",
+    }
+    nested_exc = {
+        "_kind": KIND_EXCEPTION,
+        "_depth": 2,
+        "exception_type": "ValueError",
+        "message": "boom",
+    }
+    assert export_tree_type_label(root) == "order.placed"
+    assert export_tree_type_label(child) == "↪️  [+12ms] chain.b"
+    assert export_tree_type_label(grandchild) == "↪️↪️  [+1ms] chain.c"
+    assert export_tree_type_label(nested_exc) == "↪️💥 exc:ValueError: boom"
 
 
 def test_flatten_flow_tree_parent_children_and_exception():
