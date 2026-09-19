@@ -3,9 +3,72 @@ import os
 import re
 import shutil
 import subprocess
+from collections import deque
 from typing import Optional
 
 _LNAV_MISSING_WARNED = False
+_ROTATED_LOG = re.compile(r"^(.+)\.log\.(\d+)$")
+_LOG_RECORD_START = re.compile(r"^\d{4}-\d{2}-\d{2}")
+
+
+def instance_log_stem(service_name, instance_id):
+    sanitized = re.sub(r"[^A-Za-z0-9._-]", "_", str(service_name or ""))
+    short_id = str(instance_id or "").replace("-", "")[:12]
+    return "%s-%s" % (sanitized, short_id)
+
+
+def instance_log_files(log_directory, service_name, instance_id):
+    """Numeric RotatingFileHandler backups oldest first, then the current file."""
+    if not log_directory or not os.path.isdir(log_directory):
+        return []
+    stem = instance_log_stem(service_name, instance_id)
+    rotated = []
+    for name in os.listdir(log_directory):
+        match = _ROTATED_LOG.match(name)
+        if not match or match.group(1) != stem:
+            continue
+        path = os.path.join(log_directory, name)
+        if os.path.isfile(path):
+            rotated.append((int(match.group(2)), path))
+    rotated.sort(key=lambda item: item[0], reverse=True)
+    paths = [path for _index, path in rotated]
+    current = os.path.join(log_directory, stem + ".log")
+    if os.path.isfile(current):
+        paths.append(current)
+    return paths
+
+
+def collect_flow_log_excerpt(log_directory, flow_id, instance_keys, max_lines=2000):
+    """Last ``max_lines`` of matching records, including traceback continuations."""
+    flow_id = str(flow_id or "").strip()
+    if not flow_id or not instance_keys:
+        return []
+    needle = "[flow=%s]" % flow_id
+    paths = []
+    seen = set()
+    for service_name, instance_id in instance_keys:
+        for path in instance_log_files(log_directory, service_name, instance_id):
+            if path in seen:
+                continue
+            seen.add(path)
+            paths.append(path)
+    cap = max_lines if isinstance(max_lines, int) and max_lines > 0 else 2000
+    buf = deque(maxlen=cap)
+    for path in paths:
+        capturing = False
+        with open(path, "r", encoding="utf-8", errors="replace") as fid:
+            for line in fid:
+                text = line.rstrip("\n")
+                if needle in text:
+                    capturing = True
+                    buf.append(text)
+                    continue
+                if capturing:
+                    if _LOG_RECORD_START.match(text):
+                        capturing = False
+                    else:
+                        buf.append(text)
+    return list(buf)
 
 
 def is_lnav_available() -> bool:

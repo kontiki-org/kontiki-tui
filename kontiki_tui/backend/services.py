@@ -2,8 +2,11 @@ import logging
 from datetime import datetime, timezone
 
 from kontiki.messaging import RpcProxy
+from kontiki.messaging.common import KONTIKI_SESSION_OPEN_RPC
 from kontiki.messaging.flow import short_instance_id
 from kontiki.registry import ServiceRegistryProxy
+
+from kontiki_tui.backend.log import instance_log_files, instance_log_stem
 
 OPS_OPEN_ALERT_SOURCES = ("kontiki-monitor", "host-check-service")
 MONITOR_SERVICE_NAME = "kontiki-monitor"
@@ -63,14 +66,89 @@ def event_flow_id(event):
     return str(raw).strip()
 
 
+def event_hop_id(event):
+    raw = event.get("hop_id")
+    if raw is None:
+        return ""
+    return str(raw).strip()
+
+
+def event_parent_hop_id(event):
+    raw = event.get("parent_hop_id")
+    if raw is None:
+        return ""
+    return str(raw).strip()
+
+
 def event_type_label(event):
     event_type = str(event.get("event_type", "") or "").strip()
     if event_type:
         return event_type
     remote_method = str(event.get("remote_method", "") or "").strip()
-    if remote_method:
-        return f"rpc:{remote_method}"
-    return ""
+    if not remote_method:
+        return ""
+    rpc_service = str(event.get("rpc_service", "") or "").strip()
+    if rpc_service:
+        return "rpc:%s.%s" % (rpc_service, remote_method)
+    return "rpc:%s" % remote_method
+
+
+def exception_type_label(exc):
+    exc_type = str(exc.get("exception_type") or "").strip() or "Exception"
+    message = str(exc.get("message") or "").strip()
+    if message:
+        return "exc:%s: %s" % (exc_type, message)
+    return "exc:%s" % exc_type
+
+
+KIND_MESSAGE = "message"
+KIND_EXCEPTION = "exception"
+TREE_CHILD_MARK = "↪️"
+TREE_EXCEPTION_MARK = "💥"
+
+
+def tree_type_prefix(depth, kind, delta=""):
+    """Indent + emoji for Type when depth >= 1. Roots stay unmarked."""
+    if not depth:
+        return ""
+    indent = "  " * int(depth)
+    if kind == KIND_EXCEPTION:
+        return "%s%s " % (indent, TREE_EXCEPTION_MARK)
+    mark = TREE_CHILD_MARK
+    text = str(delta or "").strip()
+    if text and text != "—":
+        return "%s%s  [%s] " % (indent, mark, text)
+    return "%s%s " % (indent, mark)
+
+
+def tree_row_type_label(row):
+    if row.get("_kind") == KIND_EXCEPTION:
+        base = exception_type_label(row)
+    else:
+        base = event_type_label(row)
+    return (
+        tree_type_prefix(row.get("_depth") or 0, row.get("_kind"), row.get("_delta"))
+        + base
+    )
+
+
+def export_tree_type_label(row):
+    """Type label for Markdown tables: repeat ↪️ by depth (spaces collapse in GFM)."""
+    if row.get("_kind") == KIND_EXCEPTION:
+        base = exception_type_label(row)
+    else:
+        base = event_type_label(row)
+    depth = int(row.get("_depth") or 0)
+    if not depth:
+        return base
+    if row.get("_kind") == KIND_EXCEPTION:
+        marks = TREE_CHILD_MARK * (depth - 1) + TREE_EXCEPTION_MARK
+        return "%s %s" % (marks, base)
+    marks = TREE_CHILD_MARK * depth
+    text = str(row.get("_delta") or "").strip()
+    if text and text != "—":
+        return "%s  [%s] %s" % (marks, text, base)
+    return "%s %s" % (marks, base)
 
 
 def event_timestamp_sort_key(event):
@@ -90,6 +168,36 @@ def format_hop_time(timestamp):
     parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
     hundredths = parsed.microsecond // 10000
     return "%s.%02d" % (parsed.strftime("%H:%M:%S"), hundredths)
+
+
+def parse_event_timestamp(value):
+    text = str(value or "").strip()
+    if not text:
+        return None
+    parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def format_parent_delta(child_timestamp, parent_timestamp):
+    """Clock gap vs parent emission. Not a handler duration."""
+    child = parse_event_timestamp(child_timestamp)
+    parent = parse_event_timestamp(parent_timestamp)
+    if child is None or parent is None:
+        return "—"
+    delta = (child - parent).total_seconds()
+    sign = "+" if delta >= 0 else "-"
+    mag = abs(delta)
+    if mag < 1:
+        return "%s%dms" % (sign, int(round(mag * 1000)))
+    if mag < 10:
+        return "%s%.1fs" % (sign, mag)
+    if mag < 60:
+        return "%s%ds" % (sign, int(round(mag)))
+    if mag < 3600:
+        return "%s%dm" % (sign, int(round(mag / 60)))
+    return "%s%dh" % (sign, int(round(mag / 3600)))
 
 
 def format_flow_index_time(timestamp, now=None):
@@ -136,7 +244,88 @@ def flow_touches_group(hop_groups, group_filter):
     return any(matches_group_filter(group, group_filter) for group in hop_groups)
 
 
-def build_flows(events, instance_group_map, group_filter="all"):
+def _tree_node_from_hop(hop):
+    row = dict(hop)
+    row["_kind"] = KIND_MESSAGE
+    return row
+
+
+def _tree_node_from_exception(exc, instance_group_map):
+    row = dict(exc)
+    row["_kind"] = KIND_EXCEPTION
+    row["_group"] = group_for_event(exc, instance_group_map)
+    return row
+
+
+def flatten_flow_tree(hops, exceptions, instance_group_map):
+    """DFS rows for the Messages pane. Depth 0 when no hop_id is present."""
+    hops = hops or []
+    by_id = {}
+    for hop in hops:
+        hop_id = event_hop_id(hop)
+        if hop_id:
+            by_id[hop_id] = hop
+
+    if not by_id:
+        rows = []
+        for hop in hops:
+            node = _tree_node_from_hop(hop)
+            node["_depth"] = 0
+            node["_delta"] = "—"
+            rows.append(node)
+        return rows
+
+    message_children = {}
+    exception_children = {}
+    roots = []
+    for hop in hops:
+        node = _tree_node_from_hop(hop)
+        parent_id = event_parent_hop_id(hop)
+        if parent_id and parent_id in by_id:
+            message_children.setdefault(parent_id, []).append(node)
+        else:
+            roots.append(node)
+
+    for exc in exceptions or []:
+        parent_id = event_hop_id(exc)
+        if parent_id and parent_id in by_id:
+            exception_children.setdefault(parent_id, []).append(
+                _tree_node_from_exception(exc, instance_group_map)
+            )
+
+    for key in message_children:
+        message_children[key].sort(key=event_timestamp_sort_key)
+    for key in exception_children:
+        exception_children[key].sort(key=event_timestamp_sort_key)
+    roots.sort(key=event_timestamp_sort_key)
+
+    rows = []
+
+    def walk(node, parent_node, depth):
+        row = dict(node)
+        row["_depth"] = depth
+        if row.get("_kind") == KIND_EXCEPTION or parent_node is None:
+            row["_delta"] = "—"
+        else:
+            row["_delta"] = format_parent_delta(
+                node.get("timestamp"), parent_node.get("timestamp")
+            )
+        rows.append(row)
+        if row.get("_kind") != KIND_MESSAGE:
+            return
+        hop_id = event_hop_id(row)
+        kids = (message_children.get(hop_id) or []) + (
+            exception_children.get(hop_id) or []
+        )
+        for kid in kids:
+            walk(kid, row, depth + 1)
+
+    for root in roots:
+        walk(root, None, 0)
+    return rows
+
+
+def build_flows(events, instance_group_map, group_filter="all", exceptions=None):
     """Group tracker events by ``flow_id`` (omit blank ids)."""
     buckets = {}
     for event in events or []:
@@ -162,10 +351,17 @@ def build_flows(events, instance_group_map, group_filter="all"):
         first = annotated[0]
         last = annotated[-1]
         origin = str(first.get("service_name", "") or "").strip()
+        flow_exceptions = []
+        for exc in exceptions or []:
+            if event_flow_id(exc) == flow_id:
+                flow_exceptions.append(exc)
         flows.append(
             {
                 "flow_id": flow_id,
                 "hops": annotated,
+                "tree_rows": flatten_flow_tree(
+                    annotated, flow_exceptions, instance_group_map
+                ),
                 "groups": tuple(groups),
                 "origin": origin,
                 "first_type": event_type_label(first),
@@ -244,7 +440,7 @@ class Services:
         ):
             return True
         method = str(event.get("remote_method") or "").strip()
-        return method in CENSUS_REMOTE_METHODS
+        return method == KONTIKI_SESSION_OPEN_RPC or method in CENSUS_REMOTE_METHODS
 
     def _filter_registry_events(
         self, events: list[dict], include_internal: bool = False
@@ -310,7 +506,8 @@ class Services:
         """Build flow rows from tracker events (full chain, slice by hop group)."""
         events = await self.get_events(group_filter="all")
         instance_group_map = await self._build_instance_group_map()
-        return build_flows(events, instance_group_map, group_filter)
+        exceptions = await self.get_exceptions(group_filter="all")
+        return build_flows(events, instance_group_map, group_filter, exceptions)
 
     async def get_filtered_events(
         self,
@@ -365,28 +562,29 @@ class Services:
     ) -> list[str]:
         """Return log files for registry instances matching ``group_filter``.
 
-        Requires Kontiki >=1.8.1 naming: ``{service_name}-{12hex}.log``.
-        The set is the live registry (any status), then the session group.
-        Leftover files from deregistered instances, non-Kontiki names, and
-        ``ServiceRegistry-*.log`` (not in the registry) are omitted.
+        Requires Kontiki >=1.8.1 naming: ``{service_name}-{12hex}.log`` and
+        numeric RotatingFileHandler backups (``.log.N``). Oldest rotation
+        first, current file last, per instance. The set is the live registry
+        (any status), then the session group. Leftover files from
+        deregistered instances, dated TimedRotating suffixes, non-Kontiki
+        names, and ``ServiceRegistry-*.log`` (not in the registry) are omitted.
         """
         import os
-        import re
 
         if not log_directory or not os.path.isdir(log_directory):
             return []
 
         instance_group_map = await self._build_instance_group_map()
-        result = []
+        keys = []
         for (svc, inst_id), group in instance_group_map.items():
             if not matches_group_filter(group, group_filter):
                 continue
-            sanitized = re.sub(r"[^A-Za-z0-9._-]", "_", svc)
-            short_id = inst_id.replace("-", "")[:12]
-            full_path = os.path.join(log_directory, f"{sanitized}-{short_id}.log")
-            if os.path.isfile(full_path):
-                result.append(full_path)
-        return sorted(result)
+            keys.append((svc, inst_id))
+        keys.sort(key=lambda item: instance_log_stem(item[0], item[1]))
+        result = []
+        for svc, inst_id in keys:
+            result.extend(instance_log_files(log_directory, svc, inst_id))
+        return result
 
     async def fetch_open_alerts(self):
         """Load open NormalizedAlerts from ops producers.

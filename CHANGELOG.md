@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+- Require Kontiki `>=1.16.0` (`hop_id` / `parent_hop_id` / `rpc_service` on
+  bus emissions; `hop_id` / `exception_id` on exception records).
+- Flows tree: Type prefix `↪️  [+12ms]` (child hop) / `💥` (exception),
+  indent by depth. No Δ column. Roots unmarked. Exception rows in red,
+  without Time, after the hop's message children.
+- Flows hops: column widths follow cell content (Type included), so
+  long labels stay fully visible when switching flows.
+- Flow Markdown export: Messages is a table (Time, Group, Service,
+  Instance, Type, Host). Type repeats `↪️` by depth (`↪️↪️ …`) so
+  nesting survives GFM. Empty hops stay `—`. Logs section is the last
+  `[flow={id}]` lines from those instances' files (`logs.directory`,
+  including `.log.N`), plus traceback lines until the next log record.
+- Logs tab (and flow export) reads numeric RotatingFileHandler backups
+  (`{service}-{12hex}.log.N`), oldest first then the current file.
+- Example `simple_example` gives each publish its own `flow_id`.
+  `SimpleEventService` calls `RpcService.rpc_example` on `simple_event` ;
+  `standard_case` publishes `chain.b`, then `chain.c` (depth 3).
+  `make run-simple-event-example`.
+
 ## [1.5.0] - 2026-09-18
 
 - Require Kontiki `>=1.15.0` (exception record: `flow_id`, `entrypoint`,

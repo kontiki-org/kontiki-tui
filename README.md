@@ -63,13 +63,17 @@ The Header subtitle is the installed KontikiTUI version.
   ![Incidents tab](assets/incidents.png)
 
 - **Flows**: chains from the same event tracker, grouped by `flow_id`.
-  Top table is one row per flow (Flow Id, window, hop count, origin
-  service, first type); bottom table is that flow's hops
-  (chronological, including hops outside the session Group). A flow is
-  listed when at least one hop's emitter is in the selected Group.
+  Top table is one row per flow (Flow Id, window, Messages count, origin
+  service, first type); bottom table is that flow's message tree
+  (Type `↪️  [+12ms]` / `💥` by depth, `hop_id` / `parent_hop_id`, including hops
+  outside the session Group). Exceptions nest under the consumed hop as
+  red `💥 exc:…` rows (no Time). A flow is listed when at
+  least one hop's emitter is in the selected Group.
   Events without `flow_id` stay on Events only. Same census-RPC hide as
   Events. `e` confirms the file path then writes a Markdown export of the
-  selected flow (hops included) to `export.directory`.
+  selected flow (Messages table; Type repeats `↪️` by depth; Logs section
+  with `[flow={id}]` records including traceback) to `export.directory`.
+  Requires Kontiki ≥1.16.0.
 
 - **Events**: events tracked by the registry, with local filters (`Field`/`Value`/`Limit`:
   Service, Instance, Event Type). Instance is the 12-hex id.
@@ -93,8 +97,10 @@ The Header subtitle is the installed KontikiTUI version.
 - **Logs**: reads log files of instances currently in the registry, from
   `logs.directory`. Uses `lnav` when available; otherwise a Python reader.
   Files follow Kontiki ≥1.8.1 naming `{service_name}-{short_instance_id}.log`
-  and the session Group Select. Leftover files from deregistered instances,
-  `ServiceRegistry-*.log`, and non-Kontiki filenames are not opened.
+  plus numeric RotatingFileHandler backups (`.log.N`), filtered by the
+  session Group Select. Leftover files from deregistered instances,
+  deregistered instances, `ServiceRegistry-*.log`, dated TimedRotating
+  suffixes, and non-Kontiki filenames are not opened.
 
   ![Logs tab](assets/logs.png)
 

@@ -8,6 +8,7 @@ from kontiki_tui.backend.export import (
     exception_stem,
     export_directory,
     export_markdown,
+    flow_log_instance_keys,
     flow_stem,
     incident_stem,
     planned_export_path,
@@ -126,20 +127,119 @@ def test_render_flow_hops():
     assert text.startswith("# Flow a1b2c3d4e5f6\n")
     assert "- Origin: OrderApi\n" in text
     assert "- First: order.placed\n" in text
-    assert "- Hops: 2\n" in text
+    assert "- Messages: 2\n" in text
     assert (
-        "- 09:14:01.12 · business · OrderApi · 111111112222 · order.placed · box-1\n"
+        "| Time | Group | Service | Instance | Type | Host |\n"
+        "| --- | --- | --- | --- | --- | --- |\n" in text
+    )
+    assert (
+        "| 09:14:01.12 | business | OrderApi | 111111112222 | order.placed | box-1 |\n"
         in text
     )
     assert (
-        "- 09:14:01.40 · platform · Billing · bbbbbbbbcccc · rpc:charge · box-2\n"
+        "| 09:14:01.40 | platform | Billing | bbbbbbbbcccc | rpc:charge | box-2 |\n"
         in text
     )
+
+
+def test_render_flow_tree_exception_omits_clock():
+    text = render_flow(
+        {
+            "flow_id": "a1b2c3d4e5f6",
+            "origin": "OrderApi",
+            "first_type": "order.placed",
+            "hops": [{}],
+            "tree_rows": [
+                {
+                    "_kind": "message",
+                    "_depth": 0,
+                    "_delta": "—",
+                    "_group": "business",
+                    "timestamp": "2026-09-18T09:14:01.120000+00:00",
+                    "service_name": "OrderApi",
+                    "instance_id": "11111111-2222-3333-4444-555555555555",
+                    "event_type": "order.placed",
+                    "host": "box-1",
+                },
+                {
+                    "_kind": "message",
+                    "_depth": 2,
+                    "_delta": "+1ms",
+                    "_group": "business",
+                    "timestamp": "2026-09-18T09:14:01.160000+00:00",
+                    "service_name": "Notify",
+                    "instance_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                    "event_type": "chain.c",
+                    "host": "box-2",
+                },
+                {
+                    "_kind": "exception",
+                    "_depth": 1,
+                    "_delta": "—",
+                    "_group": "business",
+                    "timestamp": "2026-09-18T09:14:01.200000+00:00",
+                    "service_name": "Notify",
+                    "instance_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                    "exception_type": "ValueError",
+                    "message": "boom | extra",
+                    "host": "box-2",
+                },
+            ],
+        }
+    )
+    assert "- Messages: 1\n" in text
+    assert (
+        "| 09:14:01.16 | business | Notify | aaaaaaaabbbb |"
+        " ↪️↪️  [+1ms] chain.c | box-2 |\n"
+    ) in text
+    assert (
+        "| — | business | Notify | aaaaaaaabbbb |"
+        " 💥 exc:ValueError: boom \\| extra | box-2 |\n"
+    ) in text
 
 
 def test_render_flow_empty_hops():
     text = render_flow({"flow_id": "deadbeef0000", "hops": []})
-    assert "## Hops\n\n—\n" in text
+    assert "## Messages\n\n—\n" in text
+    assert "## Logs" not in text
+
+
+def test_render_flow_logs_section():
+    text = render_flow(
+        {"flow_id": "a1b2c3d4e5f6", "hops": []},
+        log_lines=["[flow=a1b2c3d4e5f6] boom"],
+    )
+    assert "## Logs\n\n```\n[flow=a1b2c3d4e5f6] boom\n```\n" in text
+
+
+def test_render_flow_empty_logs():
+    text = render_flow({"flow_id": "a1b2c3d4e5f6", "hops": []}, log_lines=[])
+    assert "## Logs\n\n—\n" in text
+
+
+def test_flow_log_instance_keys_skips_duplicates():
+    keys = flow_log_instance_keys(
+        {
+            "hops": [
+                {
+                    "service_name": "OrderApi",
+                    "instance_id": "11111111-2222-3333-4444-555555555555",
+                },
+                {
+                    "service_name": "OrderApi",
+                    "instance_id": "11111111-2222-3333-4444-555555555555",
+                },
+                {
+                    "service_name": "Billing",
+                    "instance_id": "bbbbbbbb-cccc-dddd-eeee-ffffffffffff",
+                },
+            ]
+        }
+    )
+    assert keys == [
+        ("OrderApi", "11111111-2222-3333-4444-555555555555"),
+        ("Billing", "bbbbbbbb-cccc-dddd-eeee-ffffffffffff"),
+    ]
 
 
 def test_render_incident_drops_producer_keys():

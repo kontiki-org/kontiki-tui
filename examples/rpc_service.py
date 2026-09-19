@@ -1,7 +1,7 @@
 import logging
 
 from kontiki.delegate import ServiceDelegate
-from kontiki.messaging import rpc, rpc_error
+from kontiki.messaging import Messenger, rpc, rpc_error
 
 
 class RpcServiceDelegate(ServiceDelegate):
@@ -21,12 +21,16 @@ class RpcServiceDelegate(ServiceDelegate):
 class RpcService:
     name = "RpcService"
     delegate = RpcServiceDelegate()
+    messenger = Messenger()
 
     @rpc
     async def rpc_example(self, feature):
         logging.info("Use delegate to implement business logic.")
         logging.info("Keep the service class clean and focused on the service .")
-        return await self.delegate.rpc_example(feature)
+        result = await self.delegate.rpc_example(feature)
+        if feature == "standard_case":
+            await self.messenger.publish("chain.b", {"from": "rpc_example"})
+        return result
 
     @rpc(include_headers=True)
     async def rpc_with_headers(self, _headers):

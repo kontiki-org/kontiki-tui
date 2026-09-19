@@ -413,6 +413,28 @@ def test_get_log_files_always_excludes_service_registry(services, tmp_path):
     assert "OrderSvc" in business[0]
 
 
+def test_get_log_files_includes_numeric_rotations(services, tmp_path):
+    (tmp_path / "OrderSvc-aabbccddeeff.log.2").write_text("old")
+    (tmp_path / "OrderSvc-aabbccddeeff.log.1").write_text("mid")
+    (tmp_path / "OrderSvc-aabbccddeeff.log").write_text("new")
+    (tmp_path / "OrderSvc-aabbccddeeff.log.2026-09-19").write_text("dated")
+    (tmp_path / "OldSvc-ffffffffffff.log.1").write_text("leftover")
+    services.services.get_services = AsyncMock(
+        return_value=_make_registry(
+            {
+                ("OrderSvc", "aabbccddeeff-0000-0000-0000-000000000000"): "business",
+            }
+        )
+    )
+    out = asyncio.run(services.get_log_files_for_group(str(tmp_path), "all"))
+    names = [path.rsplit("/", 1)[-1] for path in out]
+    assert names == [
+        "OrderSvc-aabbccddeeff.log.2",
+        "OrderSvc-aabbccddeeff.log.1",
+        "OrderSvc-aabbccddeeff.log",
+    ]
+
+
 def test_get_exceptions_excludes_service_registry(services):
     raw = [
         {

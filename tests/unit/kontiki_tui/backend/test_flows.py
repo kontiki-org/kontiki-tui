@@ -3,15 +3,24 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock, Mock
 
 import pytest
+from kontiki.messaging.common import KONTIKI_SESSION_OPEN_RPC
 
 from kontiki_tui.backend.services import (
+    KIND_EXCEPTION,
+    KIND_MESSAGE,
     Services,
     apply_flow_field_filter,
     build_flows,
     event_type_label,
+    exception_type_label,
+    export_tree_type_label,
+    flatten_flow_tree,
     format_flow_index_time,
     format_hop_time,
+    format_parent_delta,
     group_for_event,
+    tree_row_type_label,
+    tree_type_prefix,
 )
 
 
@@ -44,6 +53,10 @@ def _registry():
 def test_event_type_label_event_and_rpc():
     assert event_type_label({"event_type": "order.placed"}) == "order.placed"
     assert event_type_label({"remote_method": "charge"}) == "rpc:charge"
+    assert (
+        event_type_label({"remote_method": "charge", "rpc_service": "Billing"})
+        == "rpc:Billing.charge"
+    )
     assert event_type_label({"event_type": "x", "remote_method": "y"}) == "x"
     assert event_type_label({}) == ""
 
@@ -218,6 +231,7 @@ def test_get_flows_hides_internal_and_uses_unfiltered_events(services):
         ),
     ]
     services.services.get_events = AsyncMock(return_value=raw)
+    services.services.get_exceptions = AsyncMock(return_value=[])
     services.services.get_services = AsyncMock(
         return_value={
             "OrderApi": {
@@ -232,3 +246,158 @@ def test_get_flows_hides_internal_and_uses_unfiltered_events(services):
     assert len(out) == 1
     assert out[0]["flow_id"] == "a1b2c3d4e5f6"
     assert [hop["service_name"] for hop in out[0]["hops"]] == ["OrderApi", "Billing"]
+
+
+def test_exception_type_label():
+    assert exception_type_label(
+        {"exception_type": "ValueError", "message": "boom"}
+    ) == ("exc:ValueError: boom")
+    assert (
+        exception_type_label({"exception_type": "RuntimeError"}) == "exc:RuntimeError"
+    )
+    assert exception_type_label({}) == "exc:Exception"
+
+
+def test_format_parent_delta():
+    parent = "2026-09-18T09:14:01.000000+00:00"
+    assert format_parent_delta("2026-09-18T09:14:01.020000+00:00", parent) == "+20ms"
+    assert format_parent_delta("2026-09-18T09:14:00.920000+00:00", parent) == "-80ms"
+    assert format_parent_delta(parent, parent) == "+0ms"
+    assert format_parent_delta("", parent) == "—"
+    assert format_parent_delta("2026-09-18T09:14:03.000000+00:00", parent) == "+2.0s"
+    assert format_parent_delta("2026-09-18T09:14:13.000000+00:00", parent) == "+12s"
+
+
+def test_tree_type_prefix():
+    assert tree_type_prefix(0, KIND_MESSAGE) == ""
+    assert tree_type_prefix(1, KIND_MESSAGE) == "  ↪️ "
+    assert tree_type_prefix(1, KIND_MESSAGE, "+12ms") == "  ↪️  [+12ms] "
+    assert tree_type_prefix(1, KIND_MESSAGE, "—") == "  ↪️ "
+    assert tree_type_prefix(2, KIND_MESSAGE, "+1ms") == "    ↪️  [+1ms] "
+    assert tree_type_prefix(1, KIND_EXCEPTION, "+4ms") == "  💥 "
+
+
+def test_export_tree_type_label_repeats_marks():
+    root = {
+        "_kind": KIND_MESSAGE,
+        "_depth": 0,
+        "event_type": "order.placed",
+    }
+    child = {
+        "_kind": KIND_MESSAGE,
+        "_depth": 1,
+        "_delta": "+12ms",
+        "event_type": "chain.b",
+    }
+    grandchild = {
+        "_kind": KIND_MESSAGE,
+        "_depth": 2,
+        "_delta": "+1ms",
+        "event_type": "chain.c",
+    }
+    nested_exc = {
+        "_kind": KIND_EXCEPTION,
+        "_depth": 2,
+        "exception_type": "ValueError",
+        "message": "boom",
+    }
+    assert export_tree_type_label(root) == "order.placed"
+    assert export_tree_type_label(child) == "↪️  [+12ms] chain.b"
+    assert export_tree_type_label(grandchild) == "↪️↪️  [+1ms] chain.c"
+    assert export_tree_type_label(nested_exc) == "↪️💥 exc:ValueError: boom"
+
+
+def test_flatten_flow_tree_parent_children_and_exception():
+    mapping = _registry()
+    hops = [
+        _hop(hop_id="h1", timestamp="2026-09-18T09:14:01.000000+00:00"),
+        _hop(
+            hop_id="h2",
+            parent_hop_id="h1",
+            timestamp="2026-09-18T09:14:01.040000+00:00",
+            event_type="notify.requested",
+            service_name="Notify",
+            instance_id="inst-notify",
+        ),
+        _hop(
+            hop_id="h3",
+            parent_hop_id="h1",
+            timestamp="2026-09-18T09:14:01.030000+00:00",
+            event_type="notify.requested",
+            service_name="Billing",
+            instance_id="inst-bill",
+        ),
+    ]
+    annotated = []
+    for hop in hops:
+        row = dict(hop)
+        row["_group"] = group_for_event(hop, mapping)
+        annotated.append(row)
+    exc = {
+        "flow_id": "a1b2c3d4e5f6",
+        "hop_id": "h1",
+        "timestamp": "2026-09-18T09:14:01.035000+00:00",
+        "service_name": "Notify",
+        "instance_id": "inst-notify",
+        "exception_type": "ValueError",
+        "message": "boom",
+    }
+    rows = flatten_flow_tree(annotated, [exc], mapping)
+    assert [row["service_name"] for row in rows] == [
+        "OrderApi",
+        "Billing",
+        "Notify",
+        "Notify",
+    ]
+    assert rows[0]["_depth"] == 0
+    assert rows[0]["_delta"] == "—"
+    assert tree_row_type_label(rows[0]) == "order.placed"
+    assert rows[1]["_depth"] == 1
+    assert rows[1]["_delta"] == "+30ms"
+    assert tree_row_type_label(rows[1]) == "  ↪️  [+30ms] notify.requested"
+    assert rows[2]["_kind"] == "message"
+    assert rows[2]["_delta"] == "+40ms"
+    assert rows[3]["_kind"] == "exception"
+    assert rows[3]["_depth"] == 1
+    assert rows[3]["_delta"] == "—"
+    assert tree_row_type_label(rows[3]) == "  💥 exc:ValueError: boom"
+
+
+def test_flatten_without_hop_id_is_chrono():
+    hops = [
+        _hop(),
+        _hop(
+            timestamp="2026-09-18T09:14:01.400000+00:00",
+            service_name="Billing",
+            instance_id="inst-bill",
+        ),
+    ]
+    rows = flatten_flow_tree(hops, [], _registry())
+    assert [row["_depth"] for row in rows] == [0, 0]
+    assert [row["_delta"] for row in rows] == ["—", "—"]
+
+
+def test_get_flows_hides_session_open(services):
+    raw = [
+        _hop(),
+        _hop(
+            flow_id="session",
+            event_type="",
+            remote_method=KONTIKI_SESSION_OPEN_RPC,
+            service_name="OrderApi",
+            instance_id="inst-order",
+        ),
+    ]
+    services.services.get_events = AsyncMock(return_value=raw)
+    services.services.get_exceptions = AsyncMock(return_value=[])
+    services.services.get_services = AsyncMock(
+        return_value={
+            "OrderApi": {
+                "inst-order": {"metadata": {"group": "business"}},
+            },
+        }
+    )
+    out = asyncio.run(services.get_flows(group_filter="all"))
+    assert len(out) == 1
+    assert out[0]["flow_id"] == "a1b2c3d4e5f6"
+    assert len(out[0]["hops"]) == 1

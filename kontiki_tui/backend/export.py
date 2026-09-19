@@ -6,8 +6,9 @@ from pathlib import Path
 from kontiki.messaging.flow import short_instance_id
 
 from kontiki_tui.backend.services import (
+    KIND_EXCEPTION,
     display_alert_dict,
-    event_type_label,
+    export_tree_type_label,
     format_flow_index_time,
     format_hop_time,
     format_last_heartbeat,
@@ -81,6 +82,34 @@ def _field(label, value):
     return "- %s: %s" % (label, text)
 
 
+_HOP_EXPORT_HEADERS = (
+    "Time",
+    "Group",
+    "Service",
+    "Instance",
+    "Type",
+    "Host",
+)
+
+
+def _markdown_cell(value):
+    text = str(value or "").replace("\r\n", "\n").replace("\r", "\n")
+    text = " ".join(text.splitlines()).rstrip()
+    if not text.strip():
+        text = "—"
+    return text.replace("|", "\\|")
+
+
+def _markdown_table(headers, rows):
+    lines = [
+        "| %s |" % " | ".join(headers),
+        "| %s |" % " | ".join("---" for _ in headers),
+    ]
+    for row in rows:
+        lines.append("| %s |" % " | ".join(_markdown_cell(cell) for cell in row))
+    return lines
+
+
 def render_exception(exc):
     service = str(exc.get("service_name") or "").strip()
     instance = short_instance_id(str(exc.get("instance_id") or ""))
@@ -104,9 +133,12 @@ def render_exception(exc):
     return "\n".join(lines)
 
 
-def render_flow(flow):
+def render_flow(flow, log_lines=None):
     flow_id = str(flow.get("flow_id") or "").strip()
     hops = flow.get("hops") or []
+    tree_rows = flow.get("tree_rows")
+    if tree_rows is None:
+        tree_rows = hops
     lines = [
         "# Flow %s" % (flow_id or "—"),
         "",
@@ -114,26 +146,57 @@ def render_flow(flow):
         _field("Last", format_flow_index_time(flow.get("last"))),
         _field("Origin", flow.get("origin")),
         _field("First", flow.get("first_type")),
-        _field("Hops", len(hops)),
+        _field("Messages", len(hops)),
         "",
-        "## Hops",
+        "## Messages",
         "",
     ]
-    if not hops:
+    if not tree_rows:
         lines.append("—")
     else:
-        for hop in hops:
-            parts = [
-                format_hop_time(hop.get("timestamp")) or "—",
-                str(hop.get("_group") or "").strip() or "—",
-                str(hop.get("service_name") or "").strip() or "—",
-                short_instance_id(str(hop.get("instance_id") or "")) or "—",
-                event_type_label(hop) or "—",
-                str(hop.get("host") or "").strip() or "—",
-            ]
-            lines.append("- " + " · ".join(parts))
+        table_rows = []
+        for row in tree_rows:
+            is_exc = row.get("_kind") == KIND_EXCEPTION
+            table_rows.append(
+                (
+                    "—" if is_exc else (format_hop_time(row.get("timestamp")) or "—"),
+                    str(row.get("_group") or "").strip() or "—",
+                    str(row.get("service_name") or "").strip() or "—",
+                    short_instance_id(str(row.get("instance_id") or "")) or "—",
+                    export_tree_type_label(row) or "—",
+                    str(row.get("host") or "").strip() or "—",
+                )
+            )
+        lines.extend(_markdown_table(_HOP_EXPORT_HEADERS, table_rows))
     lines.append("")
+    if log_lines is not None:
+        lines.append("## Logs")
+        lines.append("")
+        if not log_lines:
+            lines.append("—")
+        else:
+            lines.append("```")
+            lines.extend(log_lines)
+            lines.append("```")
+        lines.append("")
     return "\n".join(lines)
+
+
+def flow_log_instance_keys(flow):
+    keys = []
+    seen = set()
+    rows = flow.get("tree_rows")
+    if rows is None:
+        rows = flow.get("hops") or []
+    for row in rows:
+        service_name = str(row.get("service_name") or "").strip()
+        instance_id = str(row.get("instance_id") or "").strip()
+        pair = (service_name, instance_id)
+        if not service_name or not instance_id or pair in seen:
+            continue
+        seen.add(pair)
+        keys.append(pair)
+    return keys
 
 
 def render_incident(alert):
