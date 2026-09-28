@@ -9,7 +9,7 @@
   `💡 N context values [context_id]` row (cyan) at its chronological
   place among the hop's rows; exception and annotation rows show their
   record time. Hovering shows the `context` payloads in a tooltip.
-  Markdown export: the row appears in the Messages table plus a
+  Markdown export: the row appears in the Timeline table plus a
   `## Contexts` section with one `### [<context_id>] - <service>: <operation>` block per record
   (keys in the first column, values in the second).
 - Examples and demo stack conform to Kontiki 2.0: `max_attempts=2`
@@ -27,7 +27,7 @@
   after the hop's message children.
 - Flows hops: column widths follow cell content (Type included), so
   long labels stay fully visible when switching flows.
-- Flow Markdown export: Messages is a table (Time, Group, Service,
+- Flow Markdown export: Timeline is a table (Time, Group, Service,
   Instance, Type, Host). Type repeats `↪️` by depth (`↪️↪️ …`) so
   nesting survives GFM. Empty hops stay `—`. Logs section is the last
   `[flow={id}]` lines from those instances' files (`logs.directory`,

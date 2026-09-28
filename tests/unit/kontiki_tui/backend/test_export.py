@@ -200,7 +200,7 @@ def test_render_flow_tree_exception_shows_record_time():
 
 def test_render_flow_empty_hops():
     text = render_flow({"flow_id": "deadbeef0000", "hops": []})
-    assert "## Messages\n\n—\n" in text
+    assert "## Timeline\n\n—\n" in text
     assert "## Logs" not in text
 
 

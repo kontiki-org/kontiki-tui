@@ -208,7 +208,7 @@ def render_flow(flow, log_lines=None):
         _field("First", flow.get("first_type")),
         _field("Messages", len(hops)),
         "",
-        "## Messages",
+        "## Timeline",
         "",
     ]
     if not tree_rows:
