@@ -103,8 +103,44 @@ def exception_type_label(exc):
 
 KIND_MESSAGE = "message"
 KIND_EXCEPTION = "exception"
+KIND_CONTEXT = "context"
 TREE_CHILD_MARK = "↪️"
 TREE_EXCEPTION_MARK = "💥"
+TREE_CONTEXT_MARK = "💡"
+
+# Registry 2.0 ActivityTracker context records carried in the event timeline.
+CONTEXT_EVENT_TYPE = "registry.context.recorded"
+
+
+def is_context_event(event):
+    """True for a ``registry.context.recorded`` timeline entry."""
+    return str(event.get("event_type", "") or "").strip() == CONTEXT_EVENT_TYPE
+
+
+def context_count_label(row):
+    """Annotation label for the contexts of one hop.
+
+    Counts the values the tooltip shows: top-level keys of each context
+    payload, 1 for a non-object payload, summed across the hop's records.
+    The record ids follow in brackets, comma-separated, so the row can be
+    referenced from the export's Contexts section.
+    """
+    records = row.get("_contexts") or []
+    total = 0
+    ids = []
+    for record in records:
+        context = record.get("context")
+        if isinstance(context, dict):
+            total += len(context)
+        else:
+            total += 1
+        context_id = str(record.get("context_id") or "").strip()
+        if context_id:
+            ids.append(context_id)
+    label = "%d context value%s" % (total, "" if total == 1 else "s")
+    if ids:
+        label = "%s [%s]" % (label, ", ".join(ids))
+    return label
 
 
 def tree_type_prefix(depth, kind, delta=""):
@@ -114,6 +150,8 @@ def tree_type_prefix(depth, kind, delta=""):
     indent = "  " * int(depth)
     if kind == KIND_EXCEPTION:
         return "%s%s " % (indent, TREE_EXCEPTION_MARK)
+    if kind == KIND_CONTEXT:
+        return "%s%s " % (indent, TREE_CONTEXT_MARK)
     mark = TREE_CHILD_MARK
     text = str(delta or "").strip()
     if text and text != "—":
@@ -124,6 +162,8 @@ def tree_type_prefix(depth, kind, delta=""):
 def tree_row_type_label(row):
     if row.get("_kind") == KIND_EXCEPTION:
         base = exception_type_label(row)
+    elif row.get("_kind") == KIND_CONTEXT:
+        base = context_count_label(row)
     else:
         base = event_type_label(row)
     return (
@@ -136,6 +176,8 @@ def export_tree_type_label(row):
     """Type label for Markdown tables: repeat ↪️ by depth (spaces collapse in GFM)."""
     if row.get("_kind") == KIND_EXCEPTION:
         base = exception_type_label(row)
+    elif row.get("_kind") == KIND_CONTEXT:
+        base = context_count_label(row)
     else:
         base = event_type_label(row)
     depth = int(row.get("_depth") or 0)
@@ -143,6 +185,9 @@ def export_tree_type_label(row):
         return base
     if row.get("_kind") == KIND_EXCEPTION:
         marks = TREE_CHILD_MARK * (depth - 1) + TREE_EXCEPTION_MARK
+        return "%s %s" % (marks, base)
+    if row.get("_kind") == KIND_CONTEXT:
+        marks = TREE_CHILD_MARK * (depth - 1) + TREE_CONTEXT_MARK
         return "%s %s" % (marks, base)
     marks = TREE_CHILD_MARK * depth
     text = str(row.get("_delta") or "").strip()
@@ -257,8 +302,31 @@ def _tree_node_from_exception(exc, instance_group_map):
     return row
 
 
-def flatten_flow_tree(hops, exceptions, instance_group_map):
-    """DFS rows for the Messages pane. Depth 0 when no hop_id is present."""
+def _tree_node_from_context(contexts, instance_group_map):
+    """One annotation row aggregating every context record of a hop.
+
+    ``_contexts`` keeps the records in timestamp order; the row itself
+    carries the fields of the first one (service, instance, timestamps).
+    """
+    first = contexts[0]
+    row = dict(first)
+    row["_kind"] = KIND_CONTEXT
+    row["_group"] = group_for_event(first, instance_group_map)
+    row["_contexts"] = list(contexts)
+    return row
+
+
+def flatten_flow_tree(hops, exceptions, instance_group_map, contexts=None):
+    """DFS rows for the Messages pane. Depth 0 when no hop_id is present.
+
+    Exceptions and context records are annotations, not hops: they attach
+    under the hop whose ``hop_id`` they carry, at the same depth as its
+    message children. All rows of one hop (children, exceptions, context
+    annotations) form one timestamp-ordered sequence, so the Time column
+    stays readable. All contexts of one hop aggregate into a single
+    annotation row; the records themselves stay on that row in
+    ``_contexts``.
+    """
     hops = hops or []
     by_id = {}
     for hop in hops:
@@ -277,6 +345,7 @@ def flatten_flow_tree(hops, exceptions, instance_group_map):
 
     message_children = {}
     exception_children = {}
+    context_children = {}
     roots = []
     for hop in hops:
         node = _tree_node_from_hop(hop)
@@ -293,10 +362,17 @@ def flatten_flow_tree(hops, exceptions, instance_group_map):
                 _tree_node_from_exception(exc, instance_group_map)
             )
 
+    for context in contexts or []:
+        parent_id = event_hop_id(context)
+        if parent_id and parent_id in by_id:
+            context_children.setdefault(parent_id, []).append(context)
+
     for key in message_children:
         message_children[key].sort(key=event_timestamp_sort_key)
     for key in exception_children:
         exception_children[key].sort(key=event_timestamp_sort_key)
+    for key in context_children:
+        context_children[key].sort(key=event_timestamp_sort_key)
     roots.sort(key=event_timestamp_sort_key)
 
     rows = []
@@ -304,7 +380,7 @@ def flatten_flow_tree(hops, exceptions, instance_group_map):
     def walk(node, parent_node, depth):
         row = dict(node)
         row["_depth"] = depth
-        if row.get("_kind") == KIND_EXCEPTION or parent_node is None:
+        if row.get("_kind") in (KIND_EXCEPTION, KIND_CONTEXT) or parent_node is None:
             row["_delta"] = "—"
         else:
             row["_delta"] = format_parent_delta(
@@ -314,9 +390,15 @@ def flatten_flow_tree(hops, exceptions, instance_group_map):
         if row.get("_kind") != KIND_MESSAGE:
             return
         hop_id = event_hop_id(row)
-        kids = (message_children.get(hop_id) or []) + (
-            exception_children.get(hop_id) or []
-        )
+        kids = list(message_children.get(hop_id) or [])
+        kids.extend(exception_children.get(hop_id) or [])
+        attached = context_children.get(hop_id)
+        if attached:
+            context_node = _tree_node_from_context(attached, instance_group_map)
+            kids.append(context_node)
+        # One chronological sequence per hop: children, exceptions and
+        # context annotations share the depth, ordered by timestamp.
+        kids.sort(key=event_timestamp_sort_key)
         for kid in kids:
             walk(kid, row, depth + 1)
 
@@ -326,11 +408,19 @@ def flatten_flow_tree(hops, exceptions, instance_group_map):
 
 
 def build_flows(events, instance_group_map, group_filter="all", exceptions=None):
-    """Group tracker events by ``flow_id`` (omit blank ids)."""
+    """Group tracker events by ``flow_id`` (omit blank ids).
+
+    ``registry.context.recorded`` timeline entries are not hops: they are
+    split out here and attached to their hop in ``flatten_flow_tree``.
+    """
     buckets = {}
+    context_buckets = {}
     for event in events or []:
         flow_id = event_flow_id(event)
         if not flow_id:
+            continue
+        if is_context_event(event):
+            context_buckets.setdefault(flow_id, []).append(event)
             continue
         buckets.setdefault(flow_id, []).append(event)
 
@@ -360,7 +450,10 @@ def build_flows(events, instance_group_map, group_filter="all", exceptions=None)
                 "flow_id": flow_id,
                 "hops": annotated,
                 "tree_rows": flatten_flow_tree(
-                    annotated, flow_exceptions, instance_group_map
+                    annotated,
+                    flow_exceptions,
+                    instance_group_map,
+                    context_buckets.get(flow_id),
                 ),
                 "groups": tuple(groups),
                 "origin": origin,

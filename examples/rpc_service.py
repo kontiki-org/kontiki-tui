@@ -29,6 +29,12 @@ class RpcService:
         logging.info("Keep the service class clean and focused on the service .")
         result = await self.delegate.rpc_example(feature)
         if feature == "standard_case":
+            # Context records land in the registry timeline, attached to
+            # this execution's hop (Kontiki 2.0). KontikiTUI shows them as
+            # annotations of the flow tree.
+            await self.delegate.add_context(
+                {"feature": feature, "result": "Standard case"}
+            )
             await self.messenger.publish("chain.b", {"from": "rpc_example"})
         return result
 
@@ -48,4 +54,5 @@ class RpcService:
     async def rpc_unhandled_exception(self):
         """Unhandled server-side exception; the registry records it."""
         logging.info("rpc_unhandled_exception called, about to raise.")
+        await self.delegate.add_context({"stage": "before the simulated failure"})
         await self.delegate.rpc_unhandled_exception()

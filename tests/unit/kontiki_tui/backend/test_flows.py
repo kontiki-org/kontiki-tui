@@ -343,6 +343,8 @@ def test_flatten_flow_tree_parent_children_and_exception():
         "message": "boom",
     }
     rows = flatten_flow_tree(annotated, [exc], mapping)
+    # One chronological sequence per hop: h1's block is
+    # [child h3 (.03), exception (.035), child h2 (.04)].
     assert [row["service_name"] for row in rows] == [
         "OrderApi",
         "Billing",
@@ -355,12 +357,14 @@ def test_flatten_flow_tree_parent_children_and_exception():
     assert rows[1]["_depth"] == 1
     assert rows[1]["_delta"] == "+30ms"
     assert tree_row_type_label(rows[1]) == "  ↪️  [+30ms] notify.requested"
-    assert rows[2]["_kind"] == "message"
-    assert rows[2]["_delta"] == "+40ms"
-    assert rows[3]["_kind"] == "exception"
+    assert rows[2]["_kind"] == "exception"
+    assert rows[2]["_depth"] == 1
+    assert rows[2]["_delta"] == "—"
+    assert tree_row_type_label(rows[2]) == "  💥 exc:ValueError: boom"
+    assert rows[3]["_kind"] == "message"
     assert rows[3]["_depth"] == 1
-    assert rows[3]["_delta"] == "—"
-    assert tree_row_type_label(rows[3]) == "  💥 exc:ValueError: boom"
+    assert rows[3]["_delta"] == "+40ms"
+    assert tree_row_type_label(rows[3]) == "  ↪️  [+40ms] notify.requested"
 
 
 def test_flatten_without_hop_id_is_chrono():

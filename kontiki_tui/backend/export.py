@@ -1,3 +1,4 @@
+import json
 import logging
 import re
 from datetime import datetime, timezone
@@ -6,7 +7,7 @@ from pathlib import Path
 from kontiki.messaging.flow import short_instance_id
 
 from kontiki_tui.backend.services import (
-    KIND_EXCEPTION,
+    KIND_CONTEXT,
     display_alert_dict,
     export_tree_type_label,
     format_flow_index_time,
@@ -133,6 +134,65 @@ def render_exception(exc):
     return "\n".join(lines)
 
 
+def flow_context_rows(flow):
+    """Context annotation rows of a flow tree, in tree order."""
+    tree_rows = flow.get("tree_rows")
+    if tree_rows is None:
+        tree_rows = flow.get("hops") or []
+    return [row for row in tree_rows if row.get("_kind") == KIND_CONTEXT]
+
+
+def render_flow_contexts(flow):
+    """Contexts section: one ``### <context_id>`` block per record, with
+    the context payload as a table (keys as headers, one row of values)."""
+    rows = flow_context_rows(flow)
+    if not rows:
+        return []
+    lines = ["## Contexts", ""]
+    for row in rows:
+        for record in row.get("_contexts") or []:
+            lines.extend(_context_record_lines(record))
+    return lines
+
+
+def _context_value(value):
+    if isinstance(value, (dict, list)):
+        return json.dumps(value, sort_keys=True)
+    return "" if value is None else str(value)
+
+
+def _context_header(record):
+    """`[<context_id>] - <service>: <operation>` — the operation is the
+    RPC method for a @rpc handler, the event type for @on_event."""
+    context_id = str(record.get("context_id") or "").strip() or "—"
+    service = str(record.get("service_name") or "").strip()
+    operation = str(record.get("operation") or "").strip()
+    header = "[%s]" % context_id
+    target = ""
+    if service and operation:
+        target = "%s: %s" % (service, operation)
+    elif service or operation:
+        target = service or operation
+    if target:
+        header = "%s - %s" % (header, target)
+    return header
+
+
+def _context_record_lines(record):
+    lines = ["### %s" % _context_header(record), ""]
+    payload = record.get("context")
+    if isinstance(payload, dict) and payload:
+        rows = [["**%s**" % key, _context_value(payload[key])] for key in payload]
+        lines.extend(_markdown_table(["Key", "Value"], rows))
+    else:
+        # Generic JSON block for non-object payloads.
+        lines.append("```json")
+        lines.append(json.dumps(payload, sort_keys=True))
+        lines.append("```")
+    lines.append("")
+    return lines
+
+
 def render_flow(flow, log_lines=None):
     flow_id = str(flow.get("flow_id") or "").strip()
     hops = flow.get("hops") or []
@@ -156,10 +216,9 @@ def render_flow(flow, log_lines=None):
     else:
         table_rows = []
         for row in tree_rows:
-            is_exc = row.get("_kind") == KIND_EXCEPTION
             table_rows.append(
                 (
-                    "—" if is_exc else (format_hop_time(row.get("timestamp")) or "—"),
+                    format_hop_time(row.get("timestamp")) or "—",
                     str(row.get("_group") or "").strip() or "—",
                     str(row.get("service_name") or "").strip() or "—",
                     short_instance_id(str(row.get("instance_id") or "")) or "—",
@@ -169,6 +228,7 @@ def render_flow(flow, log_lines=None):
             )
         lines.extend(_markdown_table(_HOP_EXPORT_HEADERS, table_rows))
     lines.append("")
+    lines.extend(render_flow_contexts(flow))
     if log_lines is not None:
         lines.append("## Logs")
         lines.append("")

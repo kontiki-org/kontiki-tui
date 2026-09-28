@@ -255,3 +255,64 @@ def test_collect_flow_log_excerpt_keeps_traceback(tmp_logs_dir: Path):
         '    raise RuntimeError("Unexpected Server error")',
         "RuntimeError: Unexpected Server error",
     ]
+
+
+def test_collect_flow_log_excerpt_merges_instances_chronologically(
+    tmp_logs_dir: Path,
+):
+    uuid_a = "aaaaaaaaaaaa-0000-0000-0000-000000000000"
+    uuid_b = "bbbbbbbbbbbb-0000-0000-0000-000000000000"
+    (tmp_logs_dir / "ServiceA-aaaaaaaaaaaa.log").write_text(
+        "\n".join(
+            [
+                "2026-09-28 09:00:00,100 - hostA - INFO - [flow=f1] publish",
+                "2026-09-28 09:00:00,300 - hostA - INFO - [flow=f1] done",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (tmp_logs_dir / "ServiceB-bbbbbbbbbbbb.log").write_text(
+        "\n".join(
+            [
+                "2026-09-28 09:00:00,200 - hostB - ERROR - [flow=f1] handler failed",
+                "Traceback (most recent call last):",
+                "ValueError: boom",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    lines = log_backend.collect_flow_log_excerpt(
+        str(tmp_logs_dir), "f1", [("ServiceA", uuid_a), ("ServiceB", uuid_b)], 2000
+    )
+    assert lines == [
+        "2026-09-28 09:00:00,100 - hostA - INFO - [flow=f1] publish",
+        "2026-09-28 09:00:00,200 - hostB - ERROR - [flow=f1] handler failed",
+        "Traceback (most recent call last):",
+        "ValueError: boom",
+        "2026-09-28 09:00:00,300 - hostA - INFO - [flow=f1] done",
+    ]
+
+
+def test_collect_flow_log_excerpt_unparsable_records_stay_last(
+    tmp_logs_dir: Path,
+):
+    uuid = "aabbccddeeff-0000-0000-0000-000000000000"
+    (tmp_logs_dir / "OrderSvc-aabbccddeeff.log").write_text(
+        "\n".join(
+            [
+                "[flow=f1] no timestamp scanned first",
+                "2026-09-28 09:00:00,100 - host - INFO - [flow=f1] dated record",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    lines = log_backend.collect_flow_log_excerpt(
+        str(tmp_logs_dir), "f1", [("OrderSvc", uuid)], 2000
+    )
+    assert lines == [
+        "2026-09-28 09:00:00,100 - host - INFO - [flow=f1] dated record",
+        "[flow=f1] no timestamp scanned first",
+    ]

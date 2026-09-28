@@ -2,13 +2,29 @@
 
 ## [Unreleased]
 
+- Flow Markdown export: the Logs section merges the flow instances records
+  in chronological order (tracebacks stay attached to their record).
+- Flows: `registry.context.recorded` entries (Kontiki registry 2.0)
+  render as annotations, not hops. A hop's contexts aggregate into one
+  `💡 N context values [context_id]` row (cyan) at its chronological
+  place among the hop's rows; exception and annotation rows show their
+  record time. Hovering shows the `context` payloads in a tooltip.
+  Markdown export: the row appears in the Messages table plus a
+  `## Contexts` section with one `### [<context_id>] - <service>: <operation>` block per record
+  (keys in the first column, values in the second).
+- Examples and demo stack conform to Kontiki 2.0: `max_attempts=2`
+  replaces the removed `requeue_on_error` / `reject_on_redelivered`
+  (`bounded_retry_event`), `rpc_example` records contexts, registry
+  config uses `activity_tracker.*`, RabbitMQ 4.3, image installs the
+  Kontiki 2.0.0a1 branch (2.0 is not on PyPI yet).
+
 ## [1.6.0] - 2026-09-19
 
 - Require Kontiki `>=1.16.0` (`hop_id` / `parent_hop_id` / `rpc_service` on
   bus emissions; `hop_id` / `exception_id` on exception records).
 - Flows tree: Type prefix `↪️  [+12ms]` (child hop) / `💥` (exception),
   indent by depth. No Δ column. Roots unmarked. Exception rows in red,
-  without Time, after the hop's message children.
+  after the hop's message children.
 - Flows hops: column widths follow cell content (Type included), so
   long labels stay fully visible when switching flows.
 - Flow Markdown export: Messages is a table (Time, Group, Service,

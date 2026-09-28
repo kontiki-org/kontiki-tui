@@ -24,15 +24,15 @@ async def main():
         print("dynamic_event_name published.")
 
         print(
-            "Publishing retry_then_reject_event (will be requeued on first error, "
-            "rejected on redelivery)..."
+            "Publishing bounded_retry_event (the handler fails; the broker "
+            "redelivers once, then drops it at its delivery limit)..."
         )
         await messenger.publish(
-            "retry_then_reject_event",
-            {"message": "This will be requeued first, then rejected on redelivery"},
+            "bounded_retry_event",
+            {"message": "This will be redelivered once, then dropped by the broker"},
             flow_id=generate_flow_id(),
         )
-        print("retry_then_reject_event published.")
+        print("bounded_retry_event published.")
 
 
 if __name__ == "__main__":
