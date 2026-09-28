@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from kontiki_tui.backend.services import (
+    CONTEXT_EVENT_TYPE,
     Services,
     format_degraded_reason,
     format_last_heartbeat,
@@ -182,6 +183,23 @@ def test_get_events_filters_observer_and_registry_noise(services):
         {"event_type": "alert.normalized", "service_name": "kontiki-monitor"},
         {"event_type": "business", "service_name": "SvcB"},
     ]
+
+
+def test_get_events_omits_context_records(services):
+    raw = [
+        {"event_type": "order.placed", "service_name": "SvcA", "flow_id": "aa"},
+        {
+            "event_type": CONTEXT_EVENT_TYPE,
+            "service_name": "SvcA",
+            "flow_id": "aa",
+            "hop_id": "h1",
+            "context": {"k": 1},
+        },
+    ]
+    services.services.get_events = AsyncMock(return_value=raw)
+    assert asyncio.run(services.get_events()) == [raw[0]]
+    kept = asyncio.run(services.get_events(include_contexts=True))
+    assert kept == raw
 
 
 # ---------------------------------------------------------------------------

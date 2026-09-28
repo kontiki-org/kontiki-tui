@@ -17,6 +17,7 @@
   (`bounded_retry_event`), `rpc_example` records contexts, registry
   config uses `activity_tracker.*`, RabbitMQ 4.3, image installs the
   Kontiki 2.0.0a1 branch (2.0 is not on PyPI yet).
+- Events tab omits `registry.context.recorded` (Flow annotations).
 
 ## [1.6.0] - 2026-09-19
 

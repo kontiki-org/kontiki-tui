@@ -580,10 +580,15 @@ class Services:
         return group_for_event(event, instance_group_map)
 
     async def get_events(
-        self, include_internal: bool = False, group_filter: str = "all"
+        self,
+        include_internal: bool = False,
+        group_filter: str = "all",
+        include_contexts=False,
     ) -> list[dict]:
         events = await self.services.get_events()
         events = self._filter_registry_events(events, include_internal=include_internal)
+        if not include_contexts:
+            events = [event for event in events if not is_context_event(event)]
         if group_filter == "all":
             return events
         instance_group_map = await self._build_instance_group_map()
@@ -597,7 +602,7 @@ class Services:
 
     async def get_flows(self, group_filter="all"):
         """Build flow rows from tracker events (full chain, slice by hop group)."""
-        events = await self.get_events(group_filter="all")
+        events = await self.get_events(group_filter="all", include_contexts=True)
         instance_group_map = await self._build_instance_group_map()
         exceptions = await self.get_exceptions(group_filter="all")
         return build_flows(events, instance_group_map, group_filter, exceptions)
@@ -611,6 +616,7 @@ class Services:
     ) -> list[dict]:
         events = await self.services.get_filtered_events(filter_field, value)
         events = self._filter_registry_events(events, include_internal=include_internal)
+        events = [event for event in events if not is_context_event(event)]
         if group_filter == "all":
             return events
         instance_group_map = await self._build_instance_group_map()
