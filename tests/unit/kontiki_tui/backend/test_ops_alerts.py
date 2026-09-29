@@ -1,10 +1,9 @@
 import asyncio
-import pickle
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, Mock
 
 import pytest
-from boomerang_contracts.alert.normalized import NormalizedAlert
+from boomerang_contracts import NormalizedAlert
 
 from kontiki_tui.backend.services import (
     MONITOR_SERVICE_NAME,
@@ -54,7 +53,7 @@ def test_alert_to_dict_pydantic_model_dump():
     assert alert_to_dict(FakeAlert()) == {"alert_id": "x", "mode": "json"}
 
 
-def test_alert_to_dict_unpickles_normalized_alert():
+def test_alert_to_dict_dumps_normalized_alert():
     alert = NormalizedAlert(
         alert_id="fleet:alpha-service:missing",
         source="kontiki-monitor",
@@ -68,8 +67,7 @@ def test_alert_to_dict_unpickles_normalized_alert():
         attributes={"service_name": "alpha-service", "resolution": "open"},
         expires_at=None,
     )
-    restored = pickle.loads(pickle.dumps(alert))
-    out = alert_to_dict(restored)
+    out = alert_to_dict(alert)
     assert out["alert_id"] == "fleet:alpha-service:missing"
     assert out["source"] == "kontiki-monitor"
     assert out["attributes"]["service_name"] == "alpha-service"

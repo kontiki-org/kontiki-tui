@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-09-29
+
+- Require Kontiki `>=2.0.0` (`hop_id` / `parent_hop_id` / `rpc_service` on
+  bus emissions; `hop_id` / `exception_id` on exception records;
+  `add_context` / `activity_tracker` for Flow annotations).
+- Require `boomerang-contracts` `>=2.0.0`. Incidents reads `list_open_alerts`
+  as JSON (`NormalizedAlert` dict or `model_dump`); the alert fields are
+  unchanged.
 - Flow Markdown export: the Logs section merges the flow instances records
   in chronological order (tracebacks stay attached to their record).
 - Flows: `registry.context.recorded` entries (Kontiki registry 2.0)
@@ -15,8 +23,8 @@
 - Examples and demo stack conform to Kontiki 2.0: `max_attempts=2`
   replaces the removed `requeue_on_error` / `reject_on_redelivered`
   (`bounded_retry_event`), `rpc_example` records contexts, registry
-  config uses `activity_tracker.*`, RabbitMQ 4.3, image installs the
-  Kontiki 2.0.0a1 branch (2.0 is not on PyPI yet).
+  config uses `activity_tracker.*`, RabbitMQ 4.3. The demo image overlays
+  Kontiki from the `2.0.0_alpha` GitHub branch (`--no-deps` after Poetry).
 - Events tab omits `registry.context.recorded` (Flow annotations).
 
 ## [1.6.0] - 2026-09-19

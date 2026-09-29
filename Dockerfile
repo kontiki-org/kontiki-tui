@@ -16,9 +16,9 @@ RUN pip install --no-cache-dir poetry
 
 # Install dependencies first for better layer caching
 COPY pyproject.toml poetry.lock README.md /app/
-# Examples use the Kontiki 2.0 API (max_attempts, add_context,
-# activity_tracker). 2.0 is not on PyPI yet: install it from the branch
-# LAST — kontiki-monitor requires kontiki (a pre-release does not satisfy
+# Examples use the Kontiki 2.0.0 API (max_attempts, add_context,
+# activity_tracker). Overlay 2.0.0 from the 2.0.0_alpha branch LAST —
+# kontiki-monitor requires kontiki (a pre-release does not satisfy
 # a plain ">=1.12.0"), so an earlier install would be downgraded to 1.16.
 RUN poetry config virtualenvs.create false \
     && poetry install --no-interaction --no-ansi --only main --no-root \

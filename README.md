@@ -39,7 +39,7 @@ Instance ids are the Kontiki 12-hex short id. `r` refreshes the active tab.
 - **Flows**: AMQP chains by `flow_id` (list + message tree). Exceptions nest
   under the hop that failed. Context records (Kontiki 2.0) are annotations
   on the tree, not hops. `e` exports the tree and matching log lines
-  (`[flow=…]`, including traceback). Requires Kontiki ≥1.16.0.
+  (`[flow=…]`, including traceback). Requires Kontiki ≥2.0.0.
 
   ![Flows tab](assets/flows.png)
 
@@ -72,6 +72,8 @@ Instance ids are the Kontiki 12-hex short id. `r` refreshes the active tab.
 
 ## Requirements
 
+- Kontiki 2.0.0
+- RabbitMQ ≥ 4.3
 - **Optional**: [lnav](https://lnav.org/) for richer log filtering; without it, a built-in Python reader is used
 
 ## Quickstart
