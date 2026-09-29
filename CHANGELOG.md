@@ -1,8 +1,6 @@
 # Changelog
 
-## [Unreleased]
-
-## [2.0.0]
+## [2.0.0] 2026-09-29
 
 - Require Kontiki `>=2.0.0` (`hop_id` / `parent_hop_id` / `rpc_service` on
   bus emissions; `hop_id` / `exception_id` on exception records;
