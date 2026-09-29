@@ -2,16 +2,41 @@
 
 ## [Unreleased]
 
+## [2.0.0]
+
+- Require Kontiki `>=2.0.0` (`hop_id` / `parent_hop_id` / `rpc_service` on
+  bus emissions; `hop_id` / `exception_id` on exception records;
+  `add_context` / `activity_tracker` for Flow annotations).
+- Require `boomerang-contracts` `>=2.0.0`. Incidents reads `list_open_alerts`
+  as JSON (`NormalizedAlert` dict or `model_dump`); the alert fields are
+  unchanged.
+- Flow Markdown export: the Logs section merges the flow instances records
+  in chronological order (tracebacks stay attached to their record).
+- Flows: `registry.context.recorded` entries (Kontiki registry 2.0)
+  render as annotations, not hops. A hop's contexts aggregate into one
+  `💡 N context values [context_id]` row (cyan) at its chronological
+  place among the hop's rows; exception and annotation rows show their
+  record time. Hovering shows the `context` payloads in a tooltip.
+  Markdown export: the row appears in the Timeline table plus a
+  `## Contexts` section with one `### [<context_id>] - <service>: <operation>` block per record
+  (keys in the first column, values in the second).
+- Examples and demo stack conform to Kontiki 2.0: `max_attempts=2`
+  replaces the removed `requeue_on_error` / `reject_on_redelivered`
+  (`bounded_retry_event`), `rpc_example` records contexts, registry
+  config uses `activity_tracker.*`, RabbitMQ 4.3. The demo image overlays
+  Kontiki from the `2.0.0_alpha` GitHub branch (`--no-deps` after Poetry).
+- Events tab omits `registry.context.recorded` (Flow annotations).
+
 ## [1.6.0] - 2026-09-19
 
 - Require Kontiki `>=1.16.0` (`hop_id` / `parent_hop_id` / `rpc_service` on
   bus emissions; `hop_id` / `exception_id` on exception records).
 - Flows tree: Type prefix `↪️  [+12ms]` (child hop) / `💥` (exception),
   indent by depth. No Δ column. Roots unmarked. Exception rows in red,
-  without Time, after the hop's message children.
+  after the hop's message children.
 - Flows hops: column widths follow cell content (Type included), so
   long labels stay fully visible when switching flows.
-- Flow Markdown export: Messages is a table (Time, Group, Service,
+- Flow Markdown export: Timeline is a table (Time, Group, Service,
   Instance, Type, Host). Type repeats `↪️` by depth (`↪️↪️ …`) so
   nesting survives GFM. Empty hops stay `—`. Logs section is the last
   `[flow={id}]` lines from those instances' files (`logs.directory`,

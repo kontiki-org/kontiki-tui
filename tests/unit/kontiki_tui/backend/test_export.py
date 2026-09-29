@@ -142,7 +142,7 @@ def test_render_flow_hops():
     )
 
 
-def test_render_flow_tree_exception_omits_clock():
+def test_render_flow_tree_exception_shows_record_time():
     text = render_flow(
         {
             "flow_id": "a1b2c3d4e5f6",
@@ -193,14 +193,14 @@ def test_render_flow_tree_exception_omits_clock():
         " ↪️↪️  [+1ms] chain.c | box-2 |\n"
     ) in text
     assert (
-        "| — | business | Notify | aaaaaaaabbbb |"
+        "| 09:14:01.20 | business | Notify | aaaaaaaabbbb |"
         " 💥 exc:ValueError: boom \\| extra | box-2 |\n"
     ) in text
 
 
 def test_render_flow_empty_hops():
     text = render_flow({"flow_id": "deadbeef0000", "hops": []})
-    assert "## Messages\n\n—\n" in text
+    assert "## Timeline\n\n—\n" in text
     assert "## Logs" not in text
 
 

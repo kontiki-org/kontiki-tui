@@ -6,6 +6,8 @@ import pytest
 from kontiki.messaging.common import KONTIKI_SESSION_OPEN_RPC
 
 from kontiki_tui.backend.services import (
+    CONTEXT_EVENT_TYPE,
+    KIND_CONTEXT,
     KIND_EXCEPTION,
     KIND_MESSAGE,
     Services,
@@ -343,6 +345,8 @@ def test_flatten_flow_tree_parent_children_and_exception():
         "message": "boom",
     }
     rows = flatten_flow_tree(annotated, [exc], mapping)
+    # One chronological sequence per hop: h1's block is
+    # [child h3 (.03), exception (.035), child h2 (.04)].
     assert [row["service_name"] for row in rows] == [
         "OrderApi",
         "Billing",
@@ -355,12 +359,14 @@ def test_flatten_flow_tree_parent_children_and_exception():
     assert rows[1]["_depth"] == 1
     assert rows[1]["_delta"] == "+30ms"
     assert tree_row_type_label(rows[1]) == "  ↪️  [+30ms] notify.requested"
-    assert rows[2]["_kind"] == "message"
-    assert rows[2]["_delta"] == "+40ms"
-    assert rows[3]["_kind"] == "exception"
+    assert rows[2]["_kind"] == "exception"
+    assert rows[2]["_depth"] == 1
+    assert rows[2]["_delta"] == "—"
+    assert tree_row_type_label(rows[2]) == "  💥 exc:ValueError: boom"
+    assert rows[3]["_kind"] == "message"
     assert rows[3]["_depth"] == 1
-    assert rows[3]["_delta"] == "—"
-    assert tree_row_type_label(rows[3]) == "  💥 exc:ValueError: boom"
+    assert rows[3]["_delta"] == "+40ms"
+    assert tree_row_type_label(rows[3]) == "  ↪️  [+40ms] notify.requested"
 
 
 def test_flatten_without_hop_id_is_chrono():
@@ -401,3 +407,30 @@ def test_get_flows_hides_session_open(services):
     assert len(out) == 1
     assert out[0]["flow_id"] == "a1b2c3d4e5f6"
     assert len(out[0]["hops"]) == 1
+
+
+def test_get_flows_keeps_context_records(services):
+    raw = [
+        _hop(hop_id="h1"),
+        {
+            "flow_id": "a1b2c3d4e5f6",
+            "hop_id": "h1",
+            "timestamp": "2026-09-18T09:14:01.200000+00:00",
+            "event_type": CONTEXT_EVENT_TYPE,
+            "service_name": "OrderApi",
+            "instance_id": "inst-order",
+            "context_id": "ctx-1",
+            "context": {"k": 1},
+        },
+    ]
+    services.services.get_events = AsyncMock(return_value=raw)
+    services.services.get_exceptions = AsyncMock(return_value=[])
+    services.services.get_services = AsyncMock(
+        return_value={
+            "OrderApi": {
+                "inst-order": {"metadata": {"group": "business"}},
+            },
+        }
+    )
+    out = asyncio.run(services.get_flows(group_filter="all"))
+    assert [row["_kind"] for row in out[0]["tree_rows"]] == [KIND_MESSAGE, KIND_CONTEXT]

@@ -3,12 +3,14 @@ import os
 import re
 import shutil
 import subprocess
-from collections import deque
 from typing import Optional
 
 _LNAV_MISSING_WARNED = False
 _ROTATED_LOG = re.compile(r"^(.+)\.log\.(\d+)$")
 _LOG_RECORD_START = re.compile(r"^\d{4}-\d{2}-\d{2}")
+# Kontiki's imposed log format starts records with this timestamp prefix;
+# the string itself sorts chronologically.
+_LOG_RECORD_TIME = re.compile(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:,\d{3})?)")
 
 
 def instance_log_stem(service_name, instance_id):
@@ -38,8 +40,21 @@ def instance_log_files(log_directory, service_name, instance_id):
     return paths
 
 
+def _record_time_prefix(text):
+    """Timestamp prefix of a log record, or None for custom formats."""
+    match = _LOG_RECORD_TIME.match(text)
+    return match.group(1) if match else None
+
+
 def collect_flow_log_excerpt(log_directory, flow_id, instance_keys, max_lines=2000):
-    """Last ``max_lines`` of matching records, including traceback continuations."""
+    """Last ``max_lines`` of matching records, including traceback
+    continuations, merged chronologically across the flow's instances.
+
+    Records are collected as blocks (matching line + continuation lines
+    until the next record), then sorted by their timestamp prefix. The
+    sort is stable: same-millisecond records keep scan order, and records
+    without a parsable timestamp stay at the end, in scan order.
+    """
     flow_id = str(flow_id or "").strip()
     if not flow_id or not instance_keys:
         return []
@@ -52,23 +67,24 @@ def collect_flow_log_excerpt(log_directory, flow_id, instance_keys, max_lines=20
                 continue
             seen.add(path)
             paths.append(path)
-    cap = max_lines if isinstance(max_lines, int) and max_lines > 0 else 2000
-    buf = deque(maxlen=cap)
+    blocks = []
     for path in paths:
-        capturing = False
+        block = None
         with open(path, "r", encoding="utf-8", errors="replace") as fid:
             for line in fid:
                 text = line.rstrip("\n")
                 if needle in text:
-                    capturing = True
-                    buf.append(text)
-                    continue
-                if capturing:
+                    block = [text]
+                    blocks.append((_record_time_prefix(text), block))
+                elif block is not None:
                     if _LOG_RECORD_START.match(text):
-                        capturing = False
+                        block = None
                     else:
-                        buf.append(text)
-    return list(buf)
+                        block.append(text)
+    blocks.sort(key=lambda item: (item[0] is None, item[0] or ""))
+    lines = [line for _timestamp, block in blocks for line in block]
+    cap = max_lines if isinstance(max_lines, int) and max_lines > 0 else 2000
+    return lines[-cap:]
 
 
 def is_lnav_available() -> bool:

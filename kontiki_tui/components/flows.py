@@ -6,11 +6,13 @@ from rich.text import Text
 from textual import on
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
+from textual.coordinate import Coordinate
 from textual.widgets import DataTable, Input, Label, Select, Static
 
 from kontiki_tui.backend.export import flow_log_instance_keys, flow_stem, render_flow
 from kontiki_tui.backend.log import collect_flow_log_excerpt
 from kontiki_tui.backend.services import (
+    KIND_CONTEXT,
     KIND_EXCEPTION,
     apply_flow_field_filter,
     format_flow_index_time,
@@ -60,6 +62,94 @@ _HOP_HEADERS = (
 )
 
 
+def _format_context_scalar(value):
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value)
+
+
+def _format_context_value(value, depth=0):
+    """One context payload as readable lines: bold aligned keys, nested
+    structures indented, list items as dim dash lines."""
+    indent = "  " * depth
+    if isinstance(value, dict):
+        if not value:
+            return Text(indent + "{}")
+        width = max(len(str(key)) for key in value)
+        lines = []
+        for key, item in value.items():
+            key_text = Text(str(key), style="bold")
+            if item and isinstance(item, (dict, list)):
+                lines.append(Text(indent) + key_text + Text(":"))
+                lines.append(_format_context_value(item, depth + 1))
+            else:
+                gap = " " * (width - len(str(key)) + 2)
+                rendered = (
+                    _format_context_value(item, depth)
+                    if isinstance(item, (dict, list))
+                    else Text(_format_context_scalar(item))
+                )
+                lines.append(Text(indent) + key_text + Text(gap) + rendered)
+        return Text("\n").join(lines)
+    if isinstance(value, list):
+        if not value:
+            return Text(indent + "[]")
+        lines = []
+        for item in value:
+            rendered = (
+                _format_context_value(item, depth + 1)
+                if isinstance(item, (dict, list))
+                else Text(_format_context_scalar(item))
+            )
+            lines.append(Text(indent) + Text("- ", style="dim") + rendered)
+        return Text("\n").join(lines)
+    return Text(_format_context_scalar(value))
+
+
+def format_context_tooltip(contexts):
+    """Tooltip view of a hop's ``context`` payloads, in timestamp order."""
+    blocks = []
+    for index, payload in enumerate(contexts, start=1):
+        block = _format_context_value(payload)
+        if len(contexts) > 1:
+            header = Text("context %d/%d" % (index, len(contexts)), style="dim")
+            block = Text("\n").join([header, block])
+        blocks.append(block)
+    return Text("\n\n").join(blocks)
+
+
+class HopsTable(DataTable):
+    """DataTable whose tooltip follows the hovered row.
+
+    ``row_tooltip`` maps the hovered row's key to tooltip content
+    (``None`` shows no tooltip).
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.row_tooltip = None
+
+    def _on_mouse_move(self, event):
+        super()._on_mouse_move(event)
+        self._sync_row_tooltip()
+
+    def _on_leave(self, event):
+        super()._on_leave(event)
+        self.tooltip = None
+
+    def _sync_row_tooltip(self):
+        if self.row_tooltip is None:
+            return
+        index = self.hover_row
+        if index < 0 or index >= self.row_count:
+            self.tooltip = None
+            return
+        row_key = self.coordinate_to_cell_key(Coordinate(index, 0)).row_key
+        self.tooltip = self.row_tooltip(row_key)
+
+
 class FlowsTab(Static):
     BINDINGS = [
         Binding("r", "refresh_flows", description="Refresh flows"),
@@ -78,6 +168,7 @@ class FlowsTab(Static):
         self._selected_flow_id = None
         self._hops_shown_id = None
         self.row_data_map = {}
+        self._hops_row_data = {}
 
     def compose(self):
         with Vertical(id="flows_split"):
@@ -107,13 +198,14 @@ class FlowsTab(Static):
             flows_table.border_title = "Flows"
             self.flows_table = flows_table
             yield flows_table
-            hops_table = DataTable(
+            hops_table = HopsTable(
                 id="hops_table",
                 classes="datatables",
                 cursor_type="row",
             )
             hops_table.border_title = "Messages"
             hops_table.show_row_labels = False
+            hops_table.row_tooltip = self._context_row_tooltip
             self.hops_table = hops_table
             yield hops_table
 
@@ -212,15 +304,23 @@ class FlowsTab(Static):
             str(flow.get("first_type", "") or ""),
         )
 
+    def _type_cell(self, row, type_label):
+        # Tree color code: red = exception, cyan = context annotation.
+        kind = row.get("_kind")
+        if kind == KIND_EXCEPTION:
+            return Text(type_label, style="red")
+        if kind == KIND_CONTEXT:
+            return Text(type_label, style="cyan")
+        return type_label
+
     def _hop_row_tuple(self, row):
-        is_exc = row.get("_kind") == KIND_EXCEPTION
         type_label = tree_row_type_label(row)
         return (
-            "—" if is_exc else format_hop_time(row.get("timestamp")),
+            format_hop_time(row.get("timestamp")),
             str(row.get("_group", "") or ""),
             str(row.get("service_name", "") or ""),
             short_instance_id(str(row.get("instance_id") or "")),
-            Text(type_label, style="red") if is_exc else type_label,
+            self._type_cell(row, type_label),
             str(row.get("host", "") or ""),
         )
 
@@ -286,8 +386,11 @@ class FlowsTab(Static):
         self._ensure_columns(self.hops_table, _HOP_HEADERS)
         self._fit_hops_columns(rows)
         self.hops_table.clear()
+        self._hops_row_data = {}
         if rows:
-            self.hops_table.add_rows(rows)
+            row_keys = self.hops_table.add_rows(rows)
+            for row_key, row in zip(row_keys, tree_rows):
+                self._hops_row_data[row_key] = row
         self.hops_table.refresh(layout=True)
         self._hops_shown_id = shown_id
 
@@ -340,3 +443,12 @@ class FlowsTab(Static):
         if shown == self._hops_shown_id:
             return
         self._render_hops(flow)
+
+    def _context_row_tooltip(self, row_key):
+        """Formatted view of the ``context`` payloads of a hovered context row."""
+        row = self._hops_row_data.get(row_key)
+        if row is None or row.get("_kind") != KIND_CONTEXT:
+            return None
+        contexts = [context.get("context") for context in row.get("_contexts") or []]
+        # rich Text: no markup parsing, so payload brackets render as-is.
+        return format_context_tooltip(contexts)
