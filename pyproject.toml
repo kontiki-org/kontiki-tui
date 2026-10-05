@@ -33,7 +33,7 @@ python = ">=3.11,<4.0"
 textual = "*"
 pyyaml = "^6.0.3"
 rich = "^14.3.3"
-kontiki = ">=2.0.0"
+kontiki = ">=2.1.0"
 boomerang-contracts = ">=2.0.0"
 
 [tool.poetry.group.dev.dependencies]

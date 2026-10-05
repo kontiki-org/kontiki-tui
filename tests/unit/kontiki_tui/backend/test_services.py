@@ -104,6 +104,12 @@ def test_is_internal_registry_event(services):
     assert services._is_internal_registry_event(
         {"remote_method": "list_open_alerts", "service_name": "kontiki-monitor"}
     )
+    assert services._is_internal_registry_event(
+        {"remote_method": "list_failed_messages", "service_name": "SvcA"}
+    )
+    assert services._is_internal_registry_event(
+        {"remote_method": "replay_failed_messages", "service_name": "SvcA"}
+    )
 
     assert not services._is_internal_registry_event(
         {"event_type": "simple_event", "service_name": "SvcA"}

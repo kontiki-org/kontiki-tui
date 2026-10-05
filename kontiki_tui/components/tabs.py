@@ -1,5 +1,6 @@
 from textual.widgets import Static, TabbedContent
 
+from kontiki_tui.components.entrypoints import EntrypointsTab
 from kontiki_tui.components.events import EventsTab
 from kontiki_tui.components.exceptions import ExceptionsTab
 from kontiki_tui.components.flows import FlowsTab
@@ -17,6 +18,7 @@ class KontikiTabs(Static):
         def __init__(self):
             super().__init__(
                 "Services",
+                "Entrypoints",
                 "Incidents",
                 "Flows",
                 "Events",
@@ -33,6 +35,7 @@ class KontikiTabs(Static):
     def compose(self):
         with self.KontikiContent():
             yield ServicesTab(id_="services")
+            yield EntrypointsTab(id_="entrypoints")
             yield IncidentsTab(id_="incidents")
             yield FlowsTab(id_="flows")
             yield EventsTab(id_="events")
