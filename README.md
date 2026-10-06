@@ -29,11 +29,13 @@ Instance ids are the Kontiki 12-hex short id. `r` refreshes the active tab.
 - **Services**: live instances (status, heartbeat, host/pid, versions).
   Row → public config JSON. `s` / `S` mute via kontiki-monitor (confirmed).
 
+  ![Services tab](assets/services.png)
+
+
 - **Entrypoints**: catalogue a service exposes (events, RPC, HTTP, tasks)
   and retained competing messages. `p` replays the oldest one, `d` drops it
   (both confirmed). Requires Kontiki ≥2.2.0.
 
-  ![Services tab](assets/services.png)
 
 - **Incidents**: open alerts from `kontiki-monitor` and `host-check-service`.
   Row → alert JSON. `e` exports Markdown.
