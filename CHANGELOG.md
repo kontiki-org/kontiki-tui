@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [2.1.0] 2026-10-06
+
 - Entrypoints tab: catalogue declared by live instances, retained competing
   messages, replay (`p`) or drop (`d`) of the oldest one.
 - Require Kontiki `>=2.2.0` (`entrypoints` on registration,
