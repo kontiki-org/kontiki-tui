@@ -12,6 +12,7 @@ from textual.widgets import Footer, Header, RichLog, TabbedContent
 
 from kontiki_tui.backend.log import get_log, is_lnav_available
 from kontiki_tui.backend.services import Services
+from kontiki_tui.components.entrypoints import EntrypointsTab
 from kontiki_tui.components.events import EventsTab
 from kontiki_tui.components.exceptions import ExceptionsTab
 from kontiki_tui.components.flows import FlowsTab
@@ -281,6 +282,11 @@ class KontikiTuiApp(App):
             self.run_worker(services_tab.update_table(warn_orphans=True))
             if services_tab.services_table is not None:
                 services_tab.services_table.focus()
+        elif tab_label == "Entrypoints":
+            entrypoints_tab = self.query_one("#entrypoints", EntrypointsTab)
+            self.run_worker(entrypoints_tab.update_table())
+            if entrypoints_tab.services_table is not None:
+                entrypoints_tab.services_table.focus()
         elif tab_label == "Incidents":
             incidents_tab = self.query_one("#incidents", IncidentsTab)
             self.run_worker(incidents_tab.update_table())
@@ -326,6 +332,10 @@ class KontikiTuiApp(App):
             return
         if pane.query(ServicesTab):
             self.run_worker(self.query_one("#services", ServicesTab).update_table())
+        elif pane.query(EntrypointsTab):
+            self.run_worker(
+                self.query_one("#entrypoints", EntrypointsTab).update_table()
+            )
         elif pane.query(IncidentsTab):
             self.run_worker(self.query_one("#incidents", IncidentsTab).update_table())
         elif pane.query(FlowsTab):

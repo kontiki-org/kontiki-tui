@@ -73,6 +73,54 @@ View Tab - Split Layout
     width: 100%;
 }
 
+#entrypoints_split {
+    layout: vertical;
+    padding: 1;
+    height: 1fr;
+}
+
+#entrypoints_filters {
+    height: auto;
+    margin: 0 0 1 0;
+}
+
+#entrypoints_filters > Label {
+    margin: 1;
+    height: 3;
+    content-align: center middle;
+}
+
+#entrypoints_field {
+    margin: 1 1 0 0;
+    width: 34%;
+}
+
+#entrypoints_value {
+    margin: 1 1 0 0;
+    width: 34%;
+}
+
+#entrypoints_tables {
+    height: 1fr;
+    width: 100%;
+}
+
+#entrypoints_services_table {
+    height: 1fr;
+    width: 1fr;
+}
+
+#entrypoints_table {
+    height: 1fr;
+    width: 2fr;
+}
+
+#entrypoint_message {
+    height: 1fr;
+    width: 100%;
+    border: round darkgrey;
+}
+
 #incidents_split {
     layout: vertical;
     padding: 1;

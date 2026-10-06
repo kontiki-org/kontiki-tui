@@ -1,4 +1,4 @@
-"""Shared group-filter Select for Services / Incidents /
+"""Shared group-filter Select for Services / Entrypoints / Incidents /
 Flows / Events / Exceptions / Logs / Silences."""
 
 from textual.message import Message

@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+- Entrypoints tab: catalogue declared by live instances, retained competing
+  messages, replay (`p`) or drop (`d`) of the oldest one.
+- Require Kontiki `>=2.2.0` (`entrypoints` on registration,
+  `list_failed_messages`, `replay_failed_messages`, `drop_failed_messages`).
+  The demo image installs that release from PyPI.
+
 ## [2.0.0] 2026-09-29
 
 - Require Kontiki `>=2.0.0` (`hop_id` / `parent_hop_id` / `rpc_service` on

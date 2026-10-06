@@ -1,4 +1,6 @@
 kontiki:
+  http:
+    disable: true
   registration:
     group: platform
 

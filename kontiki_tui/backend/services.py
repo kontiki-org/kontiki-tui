@@ -20,6 +20,9 @@ CENSUS_REMOTE_METHODS = frozenset(
         "get_filtered_exceptions",
         "list_silences",
         "list_open_alerts",
+        "list_failed_messages",
+        "replay_failed_messages",
+        "drop_failed_messages",
     )
 )
 
@@ -516,6 +519,21 @@ class Services:
 
     async def get_services(self):
         return await self.services.get_services()
+
+    async def list_failed_messages(self, service_name, name, limit):
+        return await self.services.list_failed_messages(
+            service_name=service_name, name=name, limit=limit
+        )
+
+    async def replay_failed_messages(self, service_name, name, count):
+        return await self.services.replay_failed_messages(
+            service_name=service_name, name=name, count=count
+        )
+
+    async def drop_failed_messages(self, service_name, name, count):
+        return await self.services.drop_failed_messages(
+            service_name=service_name, name=name, count=count
+        )
 
     async def list_registration_groups(self):
         """Return sorted group names discovered in the live registry."""
