@@ -22,6 +22,7 @@ CENSUS_REMOTE_METHODS = frozenset(
         "list_open_alerts",
         "list_failed_messages",
         "replay_failed_messages",
+        "drop_failed_messages",
     )
 )
 
@@ -526,6 +527,11 @@ class Services:
 
     async def replay_failed_messages(self, service_name, name, count):
         return await self.services.replay_failed_messages(
+            service_name=service_name, name=name, count=count
+        )
+
+    async def drop_failed_messages(self, service_name, name, count):
+        return await self.services.drop_failed_messages(
             service_name=service_name, name=name, count=count
         )
 

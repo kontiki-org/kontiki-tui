@@ -3,10 +3,10 @@
 ## [Unreleased]
 
 - Entrypoints tab: catalogue declared by live instances, retained competing
-  messages, and replay of the oldest one (`p`).
-- Require Kontiki `>=2.1.0` (`entrypoints` on registration,
-  `list_failed_messages`, `replay_failed_messages`). The demo image installs
-  that release from PyPI.
+  messages, replay (`p`) or drop (`d`) of the oldest one.
+- Require Kontiki `>=2.2.0` (`entrypoints` on registration,
+  `list_failed_messages`, `replay_failed_messages`, `drop_failed_messages`).
+  The demo image installs that release from PyPI.
 
 ## [2.0.0] 2026-09-29
 

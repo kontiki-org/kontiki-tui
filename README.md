@@ -30,8 +30,8 @@ Instance ids are the Kontiki 12-hex short id. `r` refreshes the active tab.
   Row → public config JSON. `s` / `S` mute via kontiki-monitor (confirmed).
 
 - **Entrypoints**: catalogue a service exposes (events, RPC, HTTP, tasks)
-  and retained competing messages. `p` replays the oldest one (confirmed).
-  Requires Kontiki ≥2.1.0.
+  and retained competing messages. `p` replays the oldest one, `d` drops it
+  (both confirmed). Requires Kontiki ≥2.2.0.
 
   ![Services tab](assets/services.png)
 
@@ -76,7 +76,7 @@ Instance ids are the Kontiki 12-hex short id. `r` refreshes the active tab.
 
 ## Requirements
 
-- Kontiki 2.1.0
+- Kontiki 2.2.0
 - RabbitMQ ≥ 4.3
 - **Optional**: [lnav](https://lnav.org/) for richer log filtering; without it, a built-in Python reader is used
 

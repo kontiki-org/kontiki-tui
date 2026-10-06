@@ -100,14 +100,19 @@ View Tab - Split Layout
     width: 34%;
 }
 
-#entrypoints_services_table {
+#entrypoints_tables {
     height: 1fr;
     width: 100%;
 }
 
+#entrypoints_services_table {
+    height: 1fr;
+    width: 1fr;
+}
+
 #entrypoints_table {
     height: 1fr;
-    width: 100%;
+    width: 2fr;
 }
 
 #entrypoint_message {

@@ -57,6 +57,7 @@ class EntrypointsTab(Static):
     BINDINGS = [
         Binding("r", "refresh_entrypoints", description="Refresh entrypoints"),
         Binding("p", "replay", description="Replay oldest failed"),
+        Binding("d", "drop", description="Drop oldest failed"),
     ]
 
     def __init__(self, id_="entrypoints"):
@@ -96,22 +97,23 @@ class EntrypointsTab(Static):
                 self.group_filter_select = select
                 yield label
                 yield select
-            services_table = DataTable(
-                id="entrypoints_services_table",
-                classes="datatables",
-                cursor_type="row",
-            )
-            services_table.border_title = "Services"
-            self.services_table = services_table
-            yield services_table
-            entrypoints_table = DataTable(
-                id="entrypoints_table",
-                classes="datatables",
-                cursor_type="row",
-            )
-            entrypoints_table.border_title = "Entrypoints"
-            self.entrypoints_table = entrypoints_table
-            yield entrypoints_table
+            with Horizontal(id="entrypoints_tables"):
+                services_table = DataTable(
+                    id="entrypoints_services_table",
+                    classes="datatables",
+                    cursor_type="row",
+                )
+                services_table.border_title = "Services"
+                self.services_table = services_table
+                yield services_table
+                entrypoints_table = DataTable(
+                    id="entrypoints_table",
+                    classes="datatables",
+                    cursor_type="row",
+                )
+                entrypoints_table.border_title = "Entrypoints"
+                self.entrypoints_table = entrypoints_table
+                yield entrypoints_table
             message_view = TextArea(
                 id="entrypoint_message",
                 language="json",
@@ -179,6 +181,18 @@ class EntrypointsTab(Static):
         await self.update_table()
 
     def action_replay(self):
+        self._confirm_oldest_failed(
+            "Replay oldest failed message for %s %s ? [y/n]",
+            "replay_failed",
+        )
+
+    def action_drop(self):
+        self._confirm_oldest_failed(
+            "Drop oldest failed message for %s %s ? [y/n]",
+            "drop_failed",
+        )
+
+    def _confirm_oldest_failed(self, prompt, action):
         if self.entrypoints_table is None or not self.entrypoints_table.has_focus:
             return
         row = self._selected_entrypoint()
@@ -194,44 +208,56 @@ class EntrypointsTab(Static):
         show_confirm(
             self.app,
             self,
-            "Replay oldest failed message for %s %s ? [y/n]"
-            % (row["service_name"], row["name"]),
-            "replay_failed",
+            prompt % (row["service_name"], row["name"]),
+            action,
             {"service_name": row["service_name"], "event_name": row["event_name"]},
         )
 
     @on(ConfirmPrompt.Result)
     async def on_confirm_prompt_result(self, event):
-        if not event.confirmed or event.action != "replay_failed":
+        if not event.confirmed:
             return
+        if event.action == "replay_failed":
+            await self._apply_oldest_failed(event, "replay")
+        elif event.action == "drop_failed":
+            await self._apply_oldest_failed(event, "drop")
+
+    async def _apply_oldest_failed(self, event, kind):
         backend = self.app.services
         if backend is None:
             return
         service_name = event.payload["service_name"]
         event_name = event.payload["event_name"]
-        logging.info("Replay oldest failed message for %s %s", service_name, event_name)
+        if kind == "replay":
+            call = backend.replay_failed_messages
+            counted = "replayed"
+            started = "Replay oldest failed message for %s %s"
+            finished = "Replayed %s failed message(s) for %s %s"
+            failed = "replay_failed_messages failed: %s"
+        else:
+            call = backend.drop_failed_messages
+            counted = "dropped"
+            started = "Drop oldest failed message for %s %s"
+            finished = "Dropped %s failed message(s) for %s %s"
+            failed = "drop_failed_messages failed: %s"
+        logging.info(started, service_name, event_name)
         try:
-            result = await backend.replay_failed_messages(service_name, event_name, 1)
+            result = await call(service_name, event_name, 1)
         except RpcClientError as exc:
             if exc.code == "ENTRYPOINT_UNAVAILABLE":
                 self.app._show_error_prompt(exc.message)
                 return
-            logging.warning("replay_failed_messages failed: %s", exc)
+            logging.warning(failed, exc)
             self.app._show_error_prompt(_UNREACHABLE)
             return
         except RpcTimeoutError:
             self.app._show_error_prompt(_UNREACHABLE)
             return
         except Exception as exc:
-            logging.error("replay_failed_messages failed: %s", exc, exc_info=True)
+            logging.error(failed, exc, exc_info=True)
             self.app._show_error_prompt(_UNREACHABLE)
             return
-        logging.info(
-            "Replayed %s failed message(s) for %s %s",
-            result["replayed"],
-            service_name,
-            event_name,
-        )
+        logging.info(finished, result[counted], service_name, event_name)
         await self.update_table()
 
     @on(DataTable.RowHighlighted)

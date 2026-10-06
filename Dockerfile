@@ -16,7 +16,7 @@ RUN pip install --no-cache-dir poetry
 
 # Install dependencies first for better layer caching.
 # kontiki-monitor 2.0.0 accepts kontiki >=2.0.0,<3, so it keeps the
-# locked 2.1.0 from Poetry.
+# locked 2.2.0 from Poetry.
 COPY pyproject.toml poetry.lock README.md /app/
 RUN poetry config virtualenvs.create false \
     && poetry install --no-interaction --no-ansi --only main --no-root \
