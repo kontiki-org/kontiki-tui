@@ -1,6 +1,7 @@
 import json
 import logging
 
+from rich.cells import cell_len
 from rich.text import Text
 from textual import on
 from textual.binding import Binding
@@ -53,6 +54,25 @@ _HEADERS = (
     ("occurred_at", "Occurred"),
     ("alert_id", "Alert ID"),
 )
+
+
+def _fit_columns(table, headers, rows):
+    # Set the width before the first paint. Auto width measures the
+    # centered cells on idle, after a render has cached them clipped
+    # to the header.
+    widths = [cell_len(header) for header in headers]
+    for row in rows:
+        for index, cell in enumerate(row):
+            if isinstance(cell, Text):
+                width = cell.cell_len
+            else:
+                width = cell_len(str(cell))
+            if width > widths[index]:
+                widths[index] = width
+    for column, width in zip(table.ordered_columns, widths):
+        column.auto_width = False
+        column.width = width
+        column.content_width = width
 
 
 class IncidentsTab(Static):
@@ -212,6 +232,11 @@ class IncidentsTab(Static):
         field, value = self._get_filter_state()
         filtered = apply_incident_field_filter(self._incidents_cache, field, value)
         rows = [self._row_to_tuple(alert) for alert in filtered]
+        _fit_columns(
+            self.incidents_table,
+            [label for _key, label in _HEADERS],
+            rows,
+        )
 
         self.incidents_table.clear()
         self.row_data_map = {}
@@ -221,7 +246,7 @@ class IncidentsTab(Static):
                 self.row_data_map[row_key] = alert
         else:
             self._update_detail_view({})
-        self.incidents_table.refresh()
+        self.incidents_table.refresh(layout=True)
 
     async def update_table(self):
         if self.incidents_table is None:

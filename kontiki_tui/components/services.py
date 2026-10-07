@@ -3,6 +3,7 @@ import logging
 
 from kontiki.messaging import RpcClientError, RpcTimeoutError
 from kontiki.messaging.flow import short_instance_id
+from rich.cells import cell_len
 from rich.text import Text
 from textual import on
 from textual.binding import Binding
@@ -77,11 +78,30 @@ def _service_row_matches_field(row, field, expected):
     return expected in str(row.get(field, "")).lower()
 
 
+def _fit_columns(table, headers, rows):
+    # Set the width before the first paint. Auto width measures the
+    # centered cells on idle, after a render has cached them clipped
+    # to the header.
+    widths = [cell_len(header) for header in headers]
+    for row in rows:
+        for index, cell in enumerate(row):
+            if isinstance(cell, Text):
+                width = cell.cell_len
+            else:
+                width = cell_len(str(cell))
+            if width > widths[index]:
+                widths[index] = width
+    for column, width in zip(table.ordered_columns, widths):
+        column.auto_width = False
+        column.width = width
+        column.content_width = width
+
+
 class ServicesTab(Static):
     BINDINGS = [
         Binding("r", "refresh_services", description="Refresh services table"),
-        Binding("s", "toggle_mute", description="Mute service"),
-        Binding("S", "toggle_mute_group", description="Mute all (group)"),
+        Binding("m", "toggle_mute", description="Mute service"),
+        Binding("M", "toggle_mute_group", description="Mute all (group)"),
     ]
 
     def __init__(self, id_="services"):
@@ -115,11 +135,7 @@ class ServicesTab(Static):
                 self.services_table.add_column(label)
                 continue
             header = Text(str(label), justify="center")
-            # Header "Kontiki" is as wide as "1.10.0"; a min width lets both center.
-            if key == "kontiki_version":
-                self.services_table.add_column(header, width=11)
-            else:
-                self.services_table.add_column(header)
+            self.services_table.add_column(header)
 
     def compose(self):
         with Vertical(id="services_split"):
@@ -349,6 +365,7 @@ class ServicesTab(Static):
         field, value = self._get_filter_state()
         filtered = apply_service_field_filter(self._services_cache, field, value)
         rows = [self._row_to_tuple(row_dict) for row_dict in filtered]
+        _fit_columns(self.services_table, list(self.headers.values()), rows)
 
         self.services_table.clear()
         self.row_data_map = {}
@@ -359,7 +376,7 @@ class ServicesTab(Static):
         else:
             self._update_config_view({})
 
-        self.services_table.refresh()
+        self.services_table.refresh(layout=True)
 
     def _get_row_values(self, row_key) -> dict:
         """Return a copy of the stored row values for a given row key."""

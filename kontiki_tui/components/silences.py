@@ -1,6 +1,7 @@
 import logging
 
 from kontiki.messaging import RpcClientError, RpcTimeoutError
+from rich.cells import cell_len
 from rich.text import Text
 from textual import on
 from textual.binding import Binding
@@ -41,6 +42,25 @@ _ERROR_MESSAGES = {
     "monitor_missing": "kontiki-monitor is not registered",
     "monitor_unreachable": "kontiki-monitor unreachable",
 }
+
+
+def _fit_columns(table, headers, rows):
+    # Set the width before the first paint. Auto width measures the
+    # centered cells on idle, after a render has cached them clipped
+    # to the header.
+    widths = [cell_len(header) for header in headers]
+    for row in rows:
+        for index, cell in enumerate(row):
+            if isinstance(cell, Text):
+                width = cell.cell_len
+            else:
+                width = cell_len(str(cell))
+            if width > widths[index]:
+                widths[index] = width
+    for column, width in zip(table.ordered_columns, widths):
+        column.auto_width = False
+        column.width = width
+        column.content_width = width
 
 
 class SilencesTab(Static):
@@ -157,6 +177,11 @@ class SilencesTab(Static):
         field, value = self._get_filter_state()
         filtered = apply_silence_field_filter(self._silences_cache, field, value)
         rows = [self._row_to_tuple(row) for row in filtered]
+        _fit_columns(
+            self.silences_table,
+            [label for _key, label in _HEADERS],
+            rows,
+        )
 
         self.silences_table.clear()
         self.row_data_map = {}
@@ -164,7 +189,7 @@ class SilencesTab(Static):
             row_keys = self.silences_table.add_rows(rows)
             for row_key, row in zip(row_keys, filtered):
                 self.row_data_map[row_key] = row
-        self.silences_table.refresh()
+        self.silences_table.refresh(layout=True)
 
     def _selected_row(self):
         if self.silences_table is None:

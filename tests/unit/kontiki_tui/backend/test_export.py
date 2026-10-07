@@ -190,7 +190,7 @@ def test_render_flow_tree_exception_shows_record_time():
     assert "- Messages: 1\n" in text
     assert (
         "| 09:14:01.16 | business | Notify | aaaaaaaabbbb |"
-        " ↪️↪️  [+1ms] chain.c | box-2 |\n"
+        " ↪↪  [+1ms] chain.c | box-2 |\n"
     ) in text
     assert (
         "| 09:14:01.20 | business | Notify | aaaaaaaabbbb |"
