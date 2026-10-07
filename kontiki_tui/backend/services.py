@@ -107,7 +107,10 @@ def exception_type_label(exc):
 KIND_MESSAGE = "message"
 KIND_EXCEPTION = "exception"
 KIND_CONTEXT = "context"
-TREE_CHILD_MARK = "↪️"
+# Text form, not the emoji (no VS16). Rich counts the emoji form as two
+# cells; the terminal draws it as one, and the Messages border breaks
+# on that row.
+TREE_CHILD_MARK = "\u21aa"
 TREE_EXCEPTION_MARK = "💥"
 TREE_CONTEXT_MARK = "💡"
 

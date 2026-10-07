@@ -97,7 +97,7 @@ def test_build_flows_splits_context_events_out_of_hops():
     # child h2 (.40)], then h2's block contains its own context (.50).
     assert tree_row_type_label(flow["tree_rows"][1]) == ("  💡 1 context value [ctx-1]")
     assert tree_row_type_label(flow["tree_rows"][2]) == (
-        "  ↪️  [+280ms] notify.requested"
+        "  ↪  [+280ms] notify.requested"
     )
     assert tree_row_type_label(flow["tree_rows"][3]) == (
         "    💡 1 context value [ctx-9]"
@@ -173,7 +173,7 @@ def test_export_tree_type_label_context():
             {"context_id": "c3", "context": {"c": 3}},
         ],
     }
-    assert export_tree_type_label(row) == "↪️💡 3 context values [c1, c2, c3]"
+    assert export_tree_type_label(row) == "↪💡 3 context values [c1, c2, c3]"
     assert (
         export_tree_type_label({**row, "_depth": 0}) == "3 context values [c1, c2, c3]"
     )

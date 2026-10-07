@@ -272,10 +272,10 @@ def test_format_parent_delta():
 
 def test_tree_type_prefix():
     assert tree_type_prefix(0, KIND_MESSAGE) == ""
-    assert tree_type_prefix(1, KIND_MESSAGE) == "  ↪️ "
-    assert tree_type_prefix(1, KIND_MESSAGE, "+12ms") == "  ↪️  [+12ms] "
-    assert tree_type_prefix(1, KIND_MESSAGE, "—") == "  ↪️ "
-    assert tree_type_prefix(2, KIND_MESSAGE, "+1ms") == "    ↪️  [+1ms] "
+    assert tree_type_prefix(1, KIND_MESSAGE) == "  ↪ "
+    assert tree_type_prefix(1, KIND_MESSAGE, "+12ms") == "  ↪  [+12ms] "
+    assert tree_type_prefix(1, KIND_MESSAGE, "—") == "  ↪ "
+    assert tree_type_prefix(2, KIND_MESSAGE, "+1ms") == "    ↪  [+1ms] "
     assert tree_type_prefix(1, KIND_EXCEPTION, "+4ms") == "  💥 "
 
 
@@ -304,9 +304,9 @@ def test_export_tree_type_label_repeats_marks():
         "message": "boom",
     }
     assert export_tree_type_label(root) == "order.placed"
-    assert export_tree_type_label(child) == "↪️  [+12ms] chain.b"
-    assert export_tree_type_label(grandchild) == "↪️↪️  [+1ms] chain.c"
-    assert export_tree_type_label(nested_exc) == "↪️💥 exc:ValueError: boom"
+    assert export_tree_type_label(child) == "↪  [+12ms] chain.b"
+    assert export_tree_type_label(grandchild) == "↪↪  [+1ms] chain.c"
+    assert export_tree_type_label(nested_exc) == "↪💥 exc:ValueError: boom"
 
 
 def test_flatten_flow_tree_parent_children_and_exception():
@@ -358,7 +358,7 @@ def test_flatten_flow_tree_parent_children_and_exception():
     assert tree_row_type_label(rows[0]) == "order.placed"
     assert rows[1]["_depth"] == 1
     assert rows[1]["_delta"] == "+30ms"
-    assert tree_row_type_label(rows[1]) == "  ↪️  [+30ms] notify.requested"
+    assert tree_row_type_label(rows[1]) == "  ↪  [+30ms] notify.requested"
     assert rows[2]["_kind"] == "exception"
     assert rows[2]["_depth"] == 1
     assert rows[2]["_delta"] == "—"
@@ -366,7 +366,7 @@ def test_flatten_flow_tree_parent_children_and_exception():
     assert rows[3]["_kind"] == "message"
     assert rows[3]["_depth"] == 1
     assert rows[3]["_delta"] == "+40ms"
-    assert tree_row_type_label(rows[3]) == "  ↪️  [+40ms] notify.requested"
+    assert tree_row_type_label(rows[3]) == "  ↪  [+40ms] notify.requested"
 
 
 def test_flatten_without_hop_id_is_chrono():

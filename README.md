@@ -27,7 +27,7 @@ groups from the live registry). Changing it in one tab updates all tabs.
 Instance ids are the Kontiki 12-hex short id. `r` refreshes the active tab.
 
 - **Services**: live instances (status, heartbeat, host/pid, versions).
-  Row → public config JSON. `s` / `S` mute via kontiki-monitor (confirmed).
+  Row → public config JSON. `m` / `M` mute via kontiki-monitor (confirmed).
 
   ![Services tab](assets/services.png)
 

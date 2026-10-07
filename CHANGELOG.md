@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+- Services, Incidents and Silences tables size centered columns before the
+  first paint, so hosts, timestamps and identifiers are not clipped to the
+  header.
+- Services mute bindings are `m` / `M`. The confirm says Unmute when the
+  service, or every live service in the group, is already silenced.
+- Flows child-hop mark is a single-width arrow, so the Messages table
+  border stays intact on those rows.
+
 ## [2.1.0] 2026-10-06
 
 - Entrypoints tab: catalogue declared by live instances, retained competing
