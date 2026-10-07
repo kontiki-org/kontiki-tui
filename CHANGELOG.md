@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [2.1.1] 2026-10-07
+
 - Services, Incidents and Silences tables size centered columns before the
   first paint, so hosts, timestamps and identifiers are not clipped to the
   header.
