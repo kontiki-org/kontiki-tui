@@ -3,7 +3,7 @@
 ## [Unreleased]
 
 - Example stack pulls `ghcr.io/kontiki-org/kontiki-registry:2.3.2`,
-  `kontiki-monitor:1.0.0`, and Boomerang subscription, alert-engine, and
+  `kontiki-monitor:3.0.0`, and Boomerang subscription, alert-engine, and
   email notifier (`:1.0.0`). `RpcService` and `SimpleEventService` stay a
   local build. Fleet alerts go to the email notifier (MailHog on port 8025).
 

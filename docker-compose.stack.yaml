@@ -119,7 +119,7 @@ services:
     restart: unless-stopped
 
   kontiki-monitor:
-    image: ghcr.io/kontiki-org/kontiki-monitor:1.0.0
+    image: ghcr.io/kontiki-org/kontiki-monitor:3.0.0
     command: >
       kontiki-monitor
       --config /examples/common.docker.yaml
