@@ -100,7 +100,7 @@ make install
 make run
 ```
 
-### Test stack (RabbitMQ + registry + example services + kontiki-monitor)
+### Test stack (RabbitMQ + GHCR registry, monitor, Boomerang + example services)
 
 In one terminal:
 

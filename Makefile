@@ -37,7 +37,7 @@ run-rpc-example:
 
 
 # -----------------------------------------------------------------------------
-# Docker stack (RabbitMQ + registry + example services + kontiki-monitor)
+# Docker stack (RabbitMQ + GHCR registry, monitor, Boomerang + example services)
 # -----------------------------------------------------------------------------
 stack-up:
 	docker compose -f docker-compose.stack.yaml up -d --build

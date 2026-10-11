@@ -15,12 +15,11 @@ RUN apt-get update \
 RUN pip install --no-cache-dir poetry
 
 # Install dependencies first for better layer caching.
-# kontiki-monitor 2.0.0 accepts kontiki >=2.0.0,<3, so it keeps the
-# locked 2.2.0 from Poetry.
+# Registry, monitor, and Boomerang run from GHCR images.
+# This image only runs the local example services.
 COPY pyproject.toml poetry.lock README.md /app/
 RUN poetry config virtualenvs.create false \
-    && poetry install --no-interaction --no-ansi --only main --no-root \
-    && pip install --no-cache-dir "kontiki-monitor>=2.0.0"
+    && poetry install --no-interaction --no-ansi --only main --no-root
 
 # Copy application code
 COPY kontiki_tui /app/kontiki_tui

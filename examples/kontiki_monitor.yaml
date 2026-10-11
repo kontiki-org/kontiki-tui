@@ -1,6 +1,4 @@
 kontiki:
-  http:
-    disable: true
   registration:
     group: platform
 
@@ -12,4 +10,10 @@ kontiki-monitor:
     RpcService:
       min_active: 1
     SimpleEventService:
+      min_active: 1
+    subscription-service:
+      min_active: 1
+    alert-engine-service:
+      min_active: 1
+    email-notifier-service:
       min_active: 1

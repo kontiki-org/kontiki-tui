@@ -13,17 +13,22 @@ services:
       timeout: 3s
       retries: 20
 
+  mailhog:
+    image: mailhog/mailhog
+    ports:
+      - "8025:8025"
+
   kontiki-registry:
-    build:
-      context: .
+    image: ghcr.io/kontiki-org/kontiki-registry:2.3.2
     command: >
       kontiki_registry
-      --config examples/common.docker.yaml
-      --config examples/kontiki_registry.yaml
+      --config /examples/common.docker.yaml
+      --config /examples/kontiki_registry.yaml
     depends_on:
       rabbitmq:
         condition: service_healthy
     volumes:
+      - ./examples:/examples:ro
       - ./logs:/app/logs
     restart: unless-stopped
 
@@ -61,18 +66,70 @@ services:
       - ./logs:/app/logs
     restart: unless-stopped
 
-  kontiki-monitor:
-    build:
-      context: .
+  subscription-service:
+    image: ghcr.io/kontiki-org/boomerang-subscription:1.0.0
     command: >
-      kontiki-monitor
-      --config examples/common.docker.yaml
-      --config examples/kontiki_monitor.yaml
+      boomerang-subscription
+      --config /examples/common.docker.yaml
+      --config /examples/subscription.yaml
     depends_on:
       rabbitmq:
         condition: service_healthy
       kontiki-registry:
         condition: service_started
     volumes:
+      - ./examples:/examples:ro
+      - ./logs:/app/logs
+    restart: unless-stopped
+
+  alert-engine-service:
+    image: ghcr.io/kontiki-org/boomerang-alert-engine:1.0.0
+    command: >
+      boomerang-alert-engine
+      --config /examples/common.docker.yaml
+      --config /examples/alert_engine.yaml
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      kontiki-registry:
+        condition: service_started
+      subscription-service:
+        condition: service_started
+    volumes:
+      - ./examples:/examples:ro
+      - ./logs:/app/logs
+    restart: unless-stopped
+
+  email-notifier-service:
+    image: ghcr.io/kontiki-org/boomerang-email-notifier:1.0.0
+    command: >
+      boomerang-email-notifier
+      --config /examples/common.docker.yaml
+      --config /examples/email_notifier.yaml
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      kontiki-registry:
+        condition: service_started
+      mailhog:
+        condition: service_started
+    volumes:
+      - ./examples:/examples:ro
+      - ./logs:/app/logs
+    restart: unless-stopped
+
+  kontiki-monitor:
+    image: ghcr.io/kontiki-org/kontiki-monitor:1.0.0
+    command: >
+      kontiki-monitor
+      --config /examples/common.docker.yaml
+      --config /examples/kontiki_monitor.yaml
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      kontiki-registry:
+        condition: service_started
+    volumes:
+      - ./examples:/examples:ro
       - ./logs:/app/logs
     restart: unless-stopped

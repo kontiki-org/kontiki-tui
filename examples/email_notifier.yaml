@@ -1,0 +1,15 @@
+kontiki:
+  registration:
+    group: platform
+
+app:
+  email:
+    smtp:
+      host: mailhog
+      port: 1025
+      use_starttls: false
+    from:
+      address: boomerang@localhost
+  endpoints:
+    oncall:
+      address: ops@example.org

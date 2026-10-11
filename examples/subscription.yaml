@@ -1,0 +1,21 @@
+kontiki:
+  registration:
+    group: platform
+
+app:
+  subscriptions:
+    registry-exceptions:
+      category: kontiki.registry
+      event_type: exception_recorded
+      endpoints:
+        - email.oncall
+    fleet-service-missing:
+      category: kontiki.registry
+      event_type: expected_service_missing
+      endpoints:
+        - email.oncall
+    fleet-insufficient-instances:
+      category: kontiki.registry
+      event_type: insufficient_active_instances
+      endpoints:
+        - email.oncall
