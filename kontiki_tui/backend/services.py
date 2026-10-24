@@ -251,22 +251,31 @@ def format_parent_delta(child_timestamp, parent_timestamp):
     return "%s%dh" % (sign, int(round(mag / 3600)))
 
 
-def format_flow_index_time(timestamp, now=None):
-    """Last/Started: ``HH:MM:SS`` if UTC today, else ``YYYY-MM-DD HH:MM:SS``."""
-    full = format_last_heartbeat(timestamp)
-    if not full:
+def format_journal_time(timestamp, now=None):
+    """Events and Exceptions: ``HH:MM:SS.ff`` if UTC today, else with the date."""
+    text = str(timestamp or "").strip()
+    if not text:
         return ""
+    try:
+        parsed = parse_event_timestamp(text).astimezone(timezone.utc)
+    except ValueError:
+        return text
     if now is None:
         now = datetime.now(timezone.utc)
     elif now.tzinfo is None:
         now = now.replace(tzinfo=timezone.utc)
     else:
         now = now.astimezone(timezone.utc)
-    today = now.strftime("%Y-%m-%d")
-    prefix = today + " "
-    if full.startswith(prefix):
-        return full[len(prefix) :]
-    return full
+    hundredths = parsed.microsecond // 10000
+    clock = "%s.%02d" % (parsed.strftime("%H:%M:%S"), hundredths)
+    if parsed.strftime("%Y-%m-%d") == now.strftime("%Y-%m-%d"):
+        return clock
+    return "%s %s" % (parsed.strftime("%Y-%m-%d"), clock)
+
+
+def format_flow_index_time(timestamp, now=None):
+    """Last/Started: ``HH:MM:SS`` if UTC today, else ``YYYY-MM-DD HH:MM:SS``."""
+    return format_last_heartbeat(timestamp, now=now, omit_today=True)
 
 
 def instance_id_filter_matches(instance_id, expected):
@@ -967,29 +976,48 @@ def format_instance_unreachable(service_name, instance_id):
     )
 
 
-def format_last_heartbeat(last_heartbeat):
-    """Return ``last_heartbeat`` as ``YYYY-MM-DD HH:MM:SS`` UTC, or empty."""
-    if last_heartbeat is None:
-        return ""
-    if isinstance(last_heartbeat, datetime):
-        parsed = last_heartbeat
+def format_last_heartbeat(last_heartbeat, now=None, omit_today=False):
+    """Return ``last_heartbeat`` as ``YYYY-MM-DD HH:MM:SS`` UTC, or empty.
+
+    ``omit_today`` drops the date when the instant falls on the UTC day of ``now``.
+    """
+
+    def full_stamp():
+        if last_heartbeat is None:
+            return ""
+        if isinstance(last_heartbeat, datetime):
+            parsed = last_heartbeat
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+            else:
+                parsed = parsed.astimezone(timezone.utc)
+            return parsed.replace(microsecond=0).strftime("%Y-%m-%d %H:%M:%S")
+        if not isinstance(last_heartbeat, str):
+            return str(last_heartbeat)
+        text = last_heartbeat.strip()
+        if not text:
+            return ""
+
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
         if parsed.tzinfo is None:
             parsed = parsed.replace(tzinfo=timezone.utc)
         else:
             parsed = parsed.astimezone(timezone.utc)
         return parsed.replace(microsecond=0).strftime("%Y-%m-%d %H:%M:%S")
-    if not isinstance(last_heartbeat, str):
-        return str(last_heartbeat)
-    text = last_heartbeat.strip()
-    if not text:
-        return ""
 
-    parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
+    full = full_stamp()
+    if not omit_today or not full:
+        return full
+    if now is None:
+        now = datetime.now(timezone.utc)
+    elif now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
     else:
-        parsed = parsed.astimezone(timezone.utc)
-    return parsed.replace(microsecond=0).strftime("%Y-%m-%d %H:%M:%S")
+        now = now.astimezone(timezone.utc)
+    prefix = now.strftime("%Y-%m-%d") + " "
+    if full.startswith(prefix):
+        return full[len(prefix) :]
+    return full
 
 
 def format_degraded_reason(reason):
