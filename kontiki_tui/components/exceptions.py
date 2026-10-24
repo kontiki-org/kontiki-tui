@@ -8,7 +8,7 @@ from textual.containers import Horizontal, Vertical
 from textual.widgets import DataTable, Input, Label, Select, Static
 
 from kontiki_tui.backend.export import exception_stem, render_exception
-from kontiki_tui.backend.services import instance_id_filter_matches
+from kontiki_tui.backend.services import format_journal_time, instance_id_filter_matches
 from kontiki_tui.components.group_filter import (
     GROUP_FILTER_SELECT_CLASS,
     GroupFilterChanged,
@@ -150,16 +150,6 @@ class ExceptionsTab(Static):
             self._sync_value_input_state()
             self._render_table_from_cache()
 
-    def _format_time(self, timestamp):
-        if not timestamp:
-            return ""
-        try:
-            return datetime.fromisoformat(timestamp.replace("Z", "+00:00")).strftime(
-                "%H:%M:%S.%f"
-            )
-        except Exception:
-            return str(timestamp)
-
     def _exception_sort_key(self, row):
         timestamp = str(row.get("timestamp") or "").strip()
         if not timestamp:
@@ -214,7 +204,7 @@ class ExceptionsTab(Static):
         for exc in limited:
             table_rows.append(
                 (
-                    self._format_time(_cell(exc.get("timestamp"))),
+                    format_journal_time(_cell(exc.get("timestamp"))),
                     _cell(exc.get("service_name")),
                     short_instance_id(_cell(exc.get("instance_id"))),
                     _cell(exc.get("flow_id")),

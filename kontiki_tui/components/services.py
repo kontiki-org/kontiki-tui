@@ -316,7 +316,7 @@ class ServicesTab(Static):
                         "instance_id": short_instance_id(str(full_instance_id or "")),
                         "status": status,
                         "last_heartbeat": format_last_heartbeat(
-                            entry.get("last_heartbeat")
+                            entry.get("last_heartbeat"), omit_today=True
                         ),
                         "degraded_reason": format_degraded_reason(
                             entry.get("degraded_reason")

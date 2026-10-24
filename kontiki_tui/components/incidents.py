@@ -195,7 +195,7 @@ class IncidentsTab(Static):
             attributes = alert.get("attributes") or {}
             return str(attributes.get("service_name", "") or "")
         if key == "occurred_at":
-            return format_last_heartbeat(alert.get("occurred_at"))
+            return format_last_heartbeat(alert.get("occurred_at"), omit_today=True)
         return str(alert.get(key, "") or "")
 
     def _row_to_tuple(self, alert):

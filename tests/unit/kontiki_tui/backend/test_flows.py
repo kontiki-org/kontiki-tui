@@ -19,6 +19,7 @@ from kontiki_tui.backend.services import (
     flatten_flow_tree,
     format_flow_index_time,
     format_hop_time,
+    format_journal_time,
     format_parent_delta,
     group_for_event,
     tree_row_type_label,
@@ -68,6 +69,25 @@ def test_format_hop_time():
     assert format_hop_time("2026-09-18T09:14:01.400000+00:00") == "09:14:01.40"
     assert format_hop_time("") == ""
     assert format_hop_time(None) == ""
+
+
+def test_format_journal_time_centiseconds_and_date():
+    now = datetime(2026, 9, 18, 10, 0, tzinfo=timezone.utc)
+    assert (
+        format_journal_time("2026-09-18T09:14:01.120000+00:00", now=now)
+        == "09:14:01.12"
+    )
+    assert (
+        format_journal_time("2026-09-18T09:14:01.400000+00:00", now=now)
+        == "09:14:01.40"
+    )
+    assert (
+        format_journal_time("2026-09-17T23:58:02.745190+00:00", now=now)
+        == "2026-09-17 23:58:02.74"
+    )
+    assert format_journal_time("", now=now) == ""
+    assert format_journal_time(None, now=now) == ""
+    assert format_journal_time("not-a-time", now=now) == "not-a-time"
 
 
 def test_format_flow_index_time_omits_today():

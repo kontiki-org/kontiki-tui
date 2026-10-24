@@ -7,7 +7,7 @@ from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.widgets import DataTable, Input, Label, Select, Static
 
-from kontiki_tui.backend.services import instance_id_filter_matches
+from kontiki_tui.backend.services import format_journal_time, instance_id_filter_matches
 from kontiki_tui.components.group_filter import (
     GROUP_FILTER_SELECT_CLASS,
     GroupFilterChanged,
@@ -114,16 +114,6 @@ class EventsTab(Static):
             self._sync_value_input_state()
             self._render_table_from_cache()
 
-    def _format_time(self, timestamp: str) -> str:
-        if not timestamp:
-            return ""
-        try:
-            return datetime.fromisoformat(timestamp.replace("Z", "+00:00")).strftime(
-                "%H:%M:%S.%f"
-            )
-        except Exception:
-            return timestamp
-
     def _event_sort_key(self, event: dict) -> float:
         """Sort by parsed timestamp with microsecond precision."""
         timestamp = str(event.get("timestamp", "")).strip()
@@ -194,7 +184,7 @@ class EventsTab(Static):
         for event in events_limited:
             rows.append(
                 (
-                    self._format_time(event.get("timestamp", "")),
+                    format_journal_time(event.get("timestamp", "")),
                     str(event.get("service_name", "")),
                     short_instance_id(str(event.get("instance_id") or "")),
                     self._event_type_label(event),

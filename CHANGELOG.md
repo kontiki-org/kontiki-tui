@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- Events and Exceptions Time column shows centiseconds (`HH:MM:SS.ff`).
+  A UTC date prefixes the clock when the instant is not today.
+- Services Last Heartbeat and Incidents Occurred show `HH:MM:SS` when the
+  instant is UTC today, and `YYYY-MM-DD HH:MM:SS` otherwise.
 - Example stack pulls `ghcr.io/kontiki-org/kontiki-registry:2.3.2`,
   `kontiki-monitor:3.0.0`, and Boomerang subscription, alert-engine, and
   email notifier (`:1.0.0`). `RpcService` and `SimpleEventService` stay a

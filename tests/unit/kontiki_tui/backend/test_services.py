@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -164,6 +165,17 @@ def test_format_last_heartbeat():
         == "2026-09-04 11:59:48"
     )
     assert format_last_heartbeat("2026-09-04T11:59:48Z") == "2026-09-04 11:59:48"
+    now = datetime(2026, 9, 4, 12, 0, tzinfo=timezone.utc)
+    assert (
+        format_last_heartbeat(
+            "2026-09-04T11:59:48.123456+00:00", now=now, omit_today=True
+        )
+        == "11:59:48"
+    )
+    assert (
+        format_last_heartbeat("2026-09-03T11:59:48Z", now=now, omit_today=True)
+        == "2026-09-03 11:59:48"
+    )
 
 
 def test_format_degraded_reason():
