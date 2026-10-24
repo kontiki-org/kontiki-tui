@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [2.1.2] 2026-10-24
 
 - Events and Exceptions Time column shows centiseconds (`HH:MM:SS.ff`).
   A UTC date prefixes the clock when the instant is not today.
