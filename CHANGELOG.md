@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased]
+
+- Entrypoints HTTP rows show the path in Name and the method in Mode.
+
 ## [2.1.2] 2026-10-24
 
 - Events and Exceptions Time column shows centiseconds (`HH:MM:SS.ff`).
