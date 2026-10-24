@@ -46,8 +46,9 @@ def entrypoint_view(entry):
     if kind == "rpc":
         return _plain("rpc", entry.get("name") or "", handler)
     if kind == "http":
-        name = "%s %s" % (entry.get("method") or "", entry.get("path") or "")
-        return _plain("http", name, handler)
+        view = _plain("http", entry.get("path") or "", handler)
+        view["mode"] = entry.get("method") or ""
+        return view
     if kind == "task":
         schedule = entry.get("schedule")
         mode = "" if schedule is None else str(schedule)

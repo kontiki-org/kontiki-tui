@@ -65,7 +65,9 @@ def test_live_instances_in_the_group_form_one_service_row():
     assert progress["mode"] == "in_session"
     assert progress["attempts"] == ""
     assert progress["competing"] is False
-    assert row["entrypoints"][3]["name"] == "POST /analysis"
+    http = row["entrypoints"][3]
+    assert http["name"] == "/analysis"
+    assert http["mode"] == "POST"
     task = row["entrypoints"][4]
     assert task["name"] == "backup"
     assert task["handler"] == "backup"
@@ -123,7 +125,7 @@ def test_replica_gap_and_divergent_lines():
     }
     assert declared[("analysis.requested", "handle_analysis", "3")] == "1/2"
     assert declared[("analysis.requested", "handle_other", "5")] == "1/2"
-    assert declared[("POST /analysis", "create_analysis", "")] == "1/2"
+    assert declared[("/analysis", "create_analysis", "")] == "1/2"
     counts = {("Analyzer", "analysis.requested"): 3}
     assert service_failed_display(rows[0], counts) == "3"
     for entry in rows[0]["entrypoints"]:
