@@ -36,6 +36,7 @@ Instance ids are the Kontiki 12-hex short id. `r` refreshes the active tab.
   and retained competing messages. `p` replays the oldest one, `d` drops it
   (both confirmed). Requires Kontiki ≥2.2.0.
 
+  ![Entrypoints tab](assets/entrypoints.png)
 
 - **Incidents**: open alerts from `kontiki-monitor` and `host-check-service`.
   Row → alert JSON. `e` exports Markdown.
