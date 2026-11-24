@@ -1,6 +1,6 @@
 kontiki:
   amqp:
-    url: amqp://guest:guest@rabbitmq/
+    url: amqp://guest:guest@lavinmq/
   registration:
     # Give the registry a moment to boot before services publish.
     delay: 3

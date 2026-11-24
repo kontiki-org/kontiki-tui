@@ -3,6 +3,8 @@
 ## [Unreleased]
 
 - Entrypoints HTTP rows show the path in Name and the method in Mode.
+- Example stack broker is LavinMQ 2.11 (`cloudamqp/lavinmq:2.11.1`).
+  AMQP on port 5672, management UI on 15672 (`guest` / `guest`).
 
 ## [2.1.2] 2026-10-24
 

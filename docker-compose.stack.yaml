@@ -1,14 +1,11 @@
 services:
-  rabbitmq:
-    image: rabbitmq:4.3-management
+  lavinmq:
+    image: cloudamqp/lavinmq:2.11.1
     ports:
       - "5672:5672"     # AMQP
       - "15672:15672"   # Management UI
-    environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      test: ["CMD", "lavinmqctl", "status"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -25,7 +22,7 @@ services:
       --config /examples/common.docker.yaml
       --config /examples/kontiki_registry.yaml
     depends_on:
-      rabbitmq:
+      lavinmq:
         condition: service_healthy
     volumes:
       - ./examples:/examples:ro
@@ -41,7 +38,7 @@ services:
       --config examples/rpc_service.yaml
       --config examples/common.docker.yaml
     depends_on:
-      rabbitmq:
+      lavinmq:
         condition: service_healthy
       kontiki-registry:
         condition: service_started
@@ -58,7 +55,7 @@ services:
       --config examples/simple_event_service.yaml
       --config examples/common.docker.yaml
     depends_on:
-      rabbitmq:
+      lavinmq:
         condition: service_healthy
       kontiki-registry:
         condition: service_started
@@ -73,7 +70,7 @@ services:
       --config /examples/common.docker.yaml
       --config /examples/subscription.yaml
     depends_on:
-      rabbitmq:
+      lavinmq:
         condition: service_healthy
       kontiki-registry:
         condition: service_started
@@ -89,7 +86,7 @@ services:
       --config /examples/common.docker.yaml
       --config /examples/alert_engine.yaml
     depends_on:
-      rabbitmq:
+      lavinmq:
         condition: service_healthy
       kontiki-registry:
         condition: service_started
@@ -107,7 +104,7 @@ services:
       --config /examples/common.docker.yaml
       --config /examples/email_notifier.yaml
     depends_on:
-      rabbitmq:
+      lavinmq:
         condition: service_healthy
       kontiki-registry:
         condition: service_started
@@ -125,7 +122,7 @@ services:
       --config /examples/common.docker.yaml
       --config /examples/kontiki_monitor.yaml
     depends_on:
-      rabbitmq:
+      lavinmq:
         condition: service_healthy
       kontiki-registry:
         condition: service_started

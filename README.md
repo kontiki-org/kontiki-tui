@@ -80,7 +80,7 @@ Instance ids are the Kontiki 12-hex short id. `r` refreshes the active tab.
 ## Requirements
 
 - Kontiki 2.2.0
-- RabbitMQ ≥ 4.3
+- LavinMQ (AMQP 0-9-1), for example 2.11
 - **Optional**: [lnav](https://lnav.org/) for richer log filtering; without it, a built-in Python reader is used
 
 ## Quickstart
@@ -101,7 +101,7 @@ make install
 make run
 ```
 
-### Test stack (RabbitMQ + GHCR registry, monitor, Boomerang + example services)
+### Test stack (LavinMQ + GHCR registry, monitor, Boomerang + example services)
 
 In one terminal:
 
